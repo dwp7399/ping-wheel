@@ -52,7 +52,7 @@ App 只在菜单栏显示图标，不出现在 Dock 里。首次运行需要在�
 
 ## 发布
 
-推送 `v*` 标签后，GitHub Actions 会打包 macOS（Apple 芯片 / Intel）和 Windows 安装包并发布到 Releases；`site/` 是下载页，改动后自动部署到 GitHub Pages。
+推送 `v*` 标签后，GitHub Actions 会打包 macOS（Apple 芯片 / Intel，ad-hoc 签名的 `.dmg` 与 `.zip`）和 Windows 安装包并发布到 Releases。发布 job 需要仓库变量 `PING_WHEEL_SERVER_URL`（服务根地址），未设置会失败，避免打出指向本机的包；本地开发和其它 CI 不设置则仍用 `http://127.0.0.1:8787`。安装步骤见 [INSTALL.md](INSTALL.md)。`site/` 是下载页，改动后自动部署到 GitHub Pages。
 
 ## 结构
 
