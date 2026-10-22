@@ -196,11 +196,14 @@ mod tests {
 
     #[test]
     fn default_server_是_http_且没有末尾斜杠() {
+        let baked = env!("PING_WHEEL_SERVER_URL");
         let url = Account::default_server();
         assert!(url.starts_with("http://") || url.starts_with("https://"), "{url}");
         assert!(!url.ends_with('/'), "{url}");
-        if env!("PING_WHEEL_SERVER_URL").is_empty() {
+        if baked.is_empty() {
             assert_eq!(url, Account::DEV_SERVER);
+        } else {
+            assert_eq!(url, baked);
         }
     }
 }
