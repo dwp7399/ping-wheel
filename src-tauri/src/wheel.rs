@@ -159,8 +159,8 @@ fn open_wheel(app: &AppHandle) {
         g.session
     };
 
-    // 在后台开始采集当前场景（应用、窗口、链接），执行动作时再取
-    crate::scene::begin();
+    // 采集当前场景：命中测试（光标下的文字）要在轮盘出现前做完，其余在后台继续，执行动作时再取
+    crate::scene::begin(x, y);
 
     let tap = input::tap_active();
     let _ = win.emit("wheel:open", tap);

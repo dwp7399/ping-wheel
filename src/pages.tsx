@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Collection, Mark, SettingsView, Usage, api, on, timeText } from "./api";
+import { AccountView, Collection, Mark, Me, PluginInfo, api, dateText, money, on, timeText } from "./api";
 import Shot from "./Shot";
 
 function useFlash() {
@@ -222,93 +222,202 @@ export function CollectionsPage() {
   );
 }
 
-// ---------- 模型设置 ----------
+// ---------- 账号 ----------
 
-export function ModelPage() {
-  const [view, setView] = useState<SettingsView | null>(null);
-  const [baseUrl, setBaseUrl] = useState("");
-  const [model, setModel] = useState("");
-  const [key, setKey] = useState("");
-  const [usage, setUsage] = useState<Usage | null>(null);
+export function AccountPage() {
+  const [view, setView] = useState<AccountView | null>(null);
+  const [server, setServer] = useState("");
+  const [token, setToken] = useState("");
+  const [me, setMe] = useState<Me | null>(null);
+  const [meErr, setMeErr] = useState("");
   const [msg, setMsg] = useFlash();
-  const [testing, setTesting] = useState(false);
+
+  const refresh = () =>
+    api
+      .me()
+      .then((m) => {
+        setMe(m);
+        setMeErr("");
+      })
+      .catch((e) => {
+        setMe(null);
+        setMeErr(String(e));
+      });
 
   useEffect(() => {
-    api.settings().then((v) => {
+    api.account().then((v) => {
       setView(v);
-      setBaseUrl(v.base_url);
-      setModel(v.model);
+      setServer(v.server_url);
+      if (v.has_token) refresh();
     });
-    api.usageToday().then(setUsage);
   }, []);
 
   const save = async () => {
     try {
-      const v = await api.setLlm(baseUrl, model, key.trim() ? key.trim() : null);
+      const v = await api.setAccount(server, token.trim() ? token.trim() : null);
       setView(v);
-      setKey("");
+      setToken("");
       setMsg({ ok: true, text: "已保存" });
+      refresh();
     } catch (e) {
       setMsg({ ok: false, text: String(e) });
-    }
-  };
-
-  const test = async () => {
-    setTesting(true);
-    try {
-      setMsg({ ok: true, text: await api.llmTest() });
-    } catch (e) {
-      setMsg({ ok: false, text: String(e) });
-    } finally {
-      setTesting(false);
-      api.usageToday().then(setUsage);
     }
   };
 
   if (!view) return null;
+  const e = me?.entitlements;
   return (
     <section>
       <div className="page-head">
         <h2>
-          模型设置 <span className="muted">OpenAI 兼容接口，所有功能共用</span>
+          账号 <span className="muted">模型能力和高级功能由 Ping Wheel 服务提供</span>
         </h2>
         <Flash msg={msg} />
       </div>
+
+      {me && e && (
+        <div className="plan-cards">
+          <div className={`plan-card ${e.model.active ? "on" : ""}`}>
+            <div className="plan-name">模型能力</div>
+            {e.model.active ? (
+              <>
+                <div className="plan-status">{e.model.plan}，{dateText(e.model.ends_at)} 到期</div>
+                <div className="quota">
+                  <i style={{ width: `${Math.min(100, (e.model.used / Math.max(e.model.quota, 0.0001)) * 100)}%` }} />
+                </div>
+                <div className="muted">
+                  本周期已用 {money(e.model.used, e.currency)} / {money(e.model.quota, e.currency)}，
+                  {dateText(e.model.cycle_end)} 重置
+                </div>
+              </>
+            ) : (
+              <div className="muted">未订阅。问号、对话、收藏归类和插件的模型调用都需要模型订阅（¥4.9 / ¥9.9 / ¥19.9 每月）。</div>
+            )}
+          </div>
+          <div className={`plan-card ${e.pro.active ? "on" : ""}`}>
+            <div className="plan-name">高级功能</div>
+            {e.pro.active ? (
+              <div className="plan-status">已解锁自定义插件，{dateText(e.pro.ends_at)} 到期</div>
+            ) : (
+              <div className="muted">未订阅。解锁自定义插件（¥0.99 每月）。</div>
+            )}
+          </div>
+        </div>
+      )}
+      {meErr && <p className="err">{meErr}</p>}
+
       <div className="form">
+        {me && (
+          <p className="muted" style={{ paddingLeft: 0 }}>
+            已登录：{me.user.name} {me.user.email && `（${me.user.email}）`}
+          </p>
+        )}
         <label>
-          <span>接口地址</span>
-          <input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="https://…/v3" />
+          <span>服务地址</span>
+          <input value={server} onChange={(e) => setServer(e.target.value)} placeholder="https://…" />
         </label>
         <label>
-          <span>模型</span>
-          <input value={model} onChange={(e) => setModel(e.target.value)} placeholder="需支持图片输入" />
-        </label>
-        <label>
-          <span>API Key</span>
+          <span>账号令牌</span>
           <input
             type="password"
-            value={key}
-            onChange={(e) => setKey(e.target.value)}
-            placeholder={view.has_key ? `已填写（${view.key_hint}），留空不修改` : "还没有填写"}
+            value={token}
+            onChange={(e) => setToken(e.target.value)}
+            placeholder={view.has_token ? `已填写（${view.token_hint}），留空不修改` : "pw_…"}
           />
         </label>
         <div className="form-actions">
           <button className="primary" onClick={save}>
             保存
           </button>
-          <button onClick={test} disabled={testing}>
-            {testing ? "测试中…" : "测试连接"}
+          <button onClick={refresh} disabled={!view.has_token}>
+            刷新订阅
           </button>
         </div>
-        <p className="muted">
-          当前默认对接火山方舟 Agent Plan（地址 …/api/plan/v3，需用 Agent Plan 专属 Key）。Key 只保存在本机配置文件里。
-        </p>
-        {usage && (
-          <p className="muted">
-            今日调用 {usage.calls} 次（失败 {usage.failed}），输入 {usage.prompt_tokens.toLocaleString()} / 输出{" "}
-            {usage.completion_tokens.toLocaleString()} tokens
-          </p>
-        )}
+      </div>
+    </section>
+  );
+}
+
+// ---------- 插件 ----------
+
+export function PluginsPage() {
+  const [plugins, setPlugins] = useState<PluginInfo[]>([]);
+  const [pro, setPro] = useState<boolean | null>(null);
+  const [msg, setMsg] = useFlash();
+  const reload = () => api.plugins().then(setPlugins);
+
+  useEffect(() => {
+    reload();
+    api
+      .me()
+      .then((m) => setPro(m.entitlements.pro.active))
+      .catch(() => setPro(false));
+    return on("plugins:changed", reload);
+  }, []);
+
+  const install = async () => {
+    const { open } = await import("@tauri-apps/plugin-dialog");
+    const path = await open({ multiple: false, filters: [{ name: "插件包", extensions: ["zip"] }] });
+    if (!path) return;
+    try {
+      const m = await api.pluginInstall(path as string);
+      setMsg({ ok: true, text: `已安装「${m.name}」${m.version}，可在「轮盘」里把它的动作放到某个方向上` });
+    } catch (e) {
+      setMsg({ ok: false, text: String(e) });
+    }
+  };
+
+  return (
+    <section>
+      <div className="page-head">
+        <h2>
+          插件 <span className="muted">以 zip 包安装，装好后在「轮盘」里放到某个方向上</span>
+        </h2>
+        <div className="row-gap">
+          <Flash msg={msg} />
+          <button className="primary" onClick={install} disabled={pro === false}>
+            从 zip 安装…
+          </button>
+        </div>
+      </div>
+      {pro === false && <p className="notice">自定义插件需要订阅「高级功能」（¥0.99 每月），请到「账号」页查看。</p>}
+      {plugins.length === 0 && <p className="muted empty">还没有安装插件。</p>}
+      <div className="plugin-list">
+        {plugins.map((p) => (
+          <div key={p.manifest.id} className="plugin-card">
+            <div className="plugin-head">
+              <b>{p.manifest.name}</b>
+              <span className="muted">
+                {p.manifest.version} · {p.manifest.id}
+                {p.manifest.author && ` · ${p.manifest.author}`}
+              </span>
+              <button
+                className="danger"
+                onClick={() => {
+                  if (confirm(`卸载「${p.manifest.name}」？它在轮盘上的动作也会一并移除。`))
+                    api.pluginUninstall(p.manifest.id).catch((e) => setMsg({ ok: false, text: String(e) }));
+                }}
+              >
+                卸载
+              </button>
+            </div>
+            {p.manifest.description && <div className="plugin-desc">{p.manifest.description}</div>}
+            <div className="plugin-meta">
+              <span className="muted">动作：</span>
+              {p.manifest.actions.map((a) => (
+                <span key={a.id} className="pill">
+                  {a.label}
+                </span>
+              ))}
+            </div>
+            {p.permission_labels.length > 0 && (
+              <div className="plugin-meta">
+                <span className="muted">权限：</span>
+                {p.permission_labels.join("；")}
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </section>
   );

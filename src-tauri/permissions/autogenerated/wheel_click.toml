@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-wheel-click"
+description = "Enables the wheel_click command without any pre-configured scope."
+commands.allow = ["wheel_click"]
+
+[[permission]]
+identifier = "deny-wheel-click"
+description = "Denies the wheel_click command without any pre-configured scope."
+commands.deny = ["wheel_click"]

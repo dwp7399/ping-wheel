@@ -1,5 +1,5 @@
-//! 应用设置（目前只有模型配置），保存在应用配置目录的 settings.json。
-//! API Key 只存在本机配置文件里（权限 600），不进仓库。
+//! 应用设置：账号（后端服务地址 + 用户令牌），保存在应用配置目录的 settings.json（权限 600）。
+//! 客户端不直接调用任何模型服务，模型能力全部经由后端（见 cloud.rs）。
 
 use std::fs;
 use std::path::PathBuf;
@@ -8,54 +8,36 @@ use std::sync::Mutex;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, State};
 
-/// 模型服务配置。目前对接火山方舟 Agent Plan（OpenAI 兼容），以后换成自建网关只需改这里。
+pub const DEFAULT_SERVER: &str = "http://127.0.0.1:8787";
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
-pub struct LlmSettings {
-    /// OpenAI 兼容接口地址（不含 /chat/completions）
-    pub base_url: String,
-    pub api_key: String,
-    /// 对话和看图用的模型（需支持图片输入）
-    pub model: String,
+pub struct Account {
+    pub server_url: String,
+    pub token: String,
 }
 
-impl Default for LlmSettings {
+impl Default for Account {
     fn default() -> Self {
-        Self {
-            base_url: "https://ark.cn-beijing.volces.com/api/plan/v3".into(),
-            api_key: String::new(),
-            model: "glm-5.3-flash".into(),
-        }
-    }
-}
-
-impl LlmSettings {
-    /// 配置里没填 Key 时，退回环境变量 PING_WHEEL_API_KEY（方便开发调试）。
-    pub fn effective_key(&self) -> Option<String> {
-        let key = self.api_key.trim();
-        if !key.is_empty() {
-            return Some(key.to_string());
-        }
-        std::env::var("PING_WHEEL_API_KEY").ok().filter(|k| !k.trim().is_empty())
+        Self { server_url: DEFAULT_SERVER.into(), token: String::new() }
     }
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
-    pub llm: LlmSettings,
+    pub account: Account,
 }
 
 #[derive(Default)]
 pub struct SettingsState(pub Mutex<Settings>);
 
-/// 给前端看的设置：Key 只返回是否已填写和末尾 4 位。
+/// 给前端看的账号信息：令牌只返回是否已填写和末尾 4 位。
 #[derive(Serialize)]
-pub struct SettingsView {
-    base_url: String,
-    model: String,
-    has_key: bool,
-    key_hint: String,
+pub struct AccountView {
+    server_url: String,
+    has_token: bool,
+    token_hint: String,
 }
 
 fn path(app: &AppHandle) -> Option<PathBuf> {
@@ -87,54 +69,43 @@ fn save(app: &AppHandle, s: &Settings) -> Result<(), String> {
         use std::os::unix::fs::PermissionsExt;
         let _ = fs::set_permissions(&p, fs::Permissions::from_mode(0o600));
     }
-    log::info!("设置：已保存 {}", p.display());
     Ok(())
 }
 
-pub fn llm(app: &AppHandle) -> LlmSettings {
-    app.state::<SettingsState>().0.lock().unwrap().llm.clone()
+pub fn account(app: &AppHandle) -> Account {
+    app.state::<SettingsState>().0.lock().unwrap().account.clone()
 }
 
-fn view(s: &Settings) -> SettingsView {
-    let key = s.llm.effective_key().unwrap_or_default();
-    let tail: String = key.chars().rev().take(4).collect::<Vec<_>>().into_iter().rev().collect();
-    SettingsView {
-        base_url: s.llm.base_url.clone(),
-        model: s.llm.model.clone(),
-        has_key: !key.is_empty(),
-        key_hint: if key.is_empty() { String::new() } else { format!("…{tail}") },
+fn view(a: &Account) -> AccountView {
+    let tail: String = a.token.chars().rev().take(4).collect::<Vec<_>>().into_iter().rev().collect();
+    AccountView {
+        server_url: a.server_url.clone(),
+        has_token: !a.token.is_empty(),
+        token_hint: if a.token.is_empty() { String::new() } else { format!("…{tail}") },
     }
 }
 
 #[tauri::command]
-pub fn settings_get(state: State<'_, SettingsState>) -> SettingsView {
-    view(&state.0.lock().unwrap())
+pub fn account_get(state: State<'_, SettingsState>) -> AccountView {
+    view(&state.0.lock().unwrap().account)
 }
 
-/// api_key 为 None 表示不修改已保存的 Key。
+/// token 为 None 表示不修改已保存的令牌。
 #[tauri::command]
-pub fn settings_set_llm(
-    app: AppHandle,
-    state: State<'_, SettingsState>,
-    base_url: String,
-    model: String,
-    api_key: Option<String>,
-) -> Result<SettingsView, String> {
-    let base_url = base_url.trim().trim_end_matches('/').to_string();
-    if !base_url.starts_with("http") {
-        return Err("接口地址需以 http(s):// 开头".into());
+pub async fn account_set(app: AppHandle, server_url: String, token: Option<String>) -> Result<AccountView, String> {
+    let server_url = server_url.trim().trim_end_matches('/').to_string();
+    if !server_url.starts_with("http") {
+        return Err("服务地址需以 http(s):// 开头".into());
     }
-    if model.trim().is_empty() {
-        return Err("模型不能为空".into());
-    }
+    let state = app.state::<SettingsState>();
     let mut s = state.0.lock().unwrap().clone();
-    s.llm.base_url = base_url;
-    s.llm.model = model.trim().to_string();
-    if let Some(k) = api_key {
-        s.llm.api_key = k.trim().to_string();
+    s.account.server_url = server_url;
+    if let Some(t) = token {
+        s.account.token = t.trim().to_string();
     }
     save(&app, &s)?;
-    let v = view(&s);
+    let v = view(&s.account);
     *state.0.lock().unwrap() = s;
+    crate::cloud::refresh_entitlements(&app).await.ok();
     Ok(v)
 }

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-collection-reclassify"
+description = "Enables the collection_reclassify command without any pre-configured scope."
+commands.allow = ["collection_reclassify"]
+
+[[permission]]
+identifier = "deny-collection-reclassify"
+description = "Denies the collection_reclassify command without any pre-configured scope."
+commands.deny = ["collection_reclassify"]

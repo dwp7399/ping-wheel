@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-plugin-toast"
+description = "Enables the plugin_toast command without any pre-configured scope."
+commands.allow = ["plugin_toast"]
+
+[[permission]]
+identifier = "deny-plugin-toast"
+description = "Denies the plugin_toast command without any pre-configured scope."
+commands.deny = ["plugin_toast"]

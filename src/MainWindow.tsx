@@ -3,7 +3,7 @@ import { Icon } from "./icons";
 import { api, on, timeText } from "./api";
 import { getConfig, onConfigChanged, resetConfig, setConfig } from "./tauriSource";
 import WheelEditor from "./WheelEditor";
-import { CollectionsPage, MarksPage, ModelPage } from "./pages";
+import { AccountPage, CollectionsPage, MarksPage, PluginsPage } from "./pages";
 import { WheelItem } from "./types";
 
 type ActionEvent = {
@@ -19,7 +19,8 @@ const TABS = [
   { id: "marks", label: "标记", icon: "mark" },
   { id: "collections", label: "收藏", icon: "collect" },
   { id: "wheel", label: "轮盘", icon: "menu" },
-  { id: "model", label: "模型", icon: "sparkle" },
+  { id: "plugins", label: "插件", icon: "code" },
+  { id: "account", label: "账号", icon: "sparkle" },
   { id: "log", label: "记录", icon: "note" },
 ] as const;
 type Tab = (typeof TABS)[number]["id"];
@@ -27,7 +28,8 @@ type Tab = (typeof TABS)[number]["id"];
 export default function MainWindow() {
   const [tab, setTab] = useState<Tab>(() => {
     try {
-      return (localStorage.getItem("main-tab") as Tab) || "marks";
+      const t = localStorage.getItem("main-tab") as Tab;
+      return TABS.some((x) => x.id === t) ? t : "marks";
     } catch {
       return "marks";
     }
@@ -63,7 +65,7 @@ export default function MainWindow() {
             {t.label}
           </button>
         ))}
-        <button className="side-item" onClick={() => api.chatOpenWindow()}>
+        <button className="side-item" onClick={() => api.chatOpen()}>
           <Icon name="chat" size={17} />
           新对话
         </button>
@@ -73,7 +75,8 @@ export default function MainWindow() {
       <main className="main">
         {tab === "marks" && <MarksPage />}
         {tab === "collections" && <CollectionsPage />}
-        {tab === "model" && <ModelPage />}
+        {tab === "plugins" && <PluginsPage />}
+        {tab === "account" && <AccountPage />}
         {tab === "wheel" && items && (
           <WheelEditor
             initial={items}

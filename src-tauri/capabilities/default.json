@@ -1,10 +1,40 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capability for the main window",
-  "windows": ["main", "wheel", "toast", "chat"],
+  "description": "主界面窗口：轮盘、提示、主窗口、悬浮面板",
+  "windows": [
+    "main",
+    "wheel",
+    "toast",
+    "panel-*"
+  ],
   "permissions": [
     "core:default",
-    "opener:default"
+    "opener:default",
+    "dialog:allow-open",
+    "allow-get-config",
+    "allow-set-config",
+    "allow-reset-config",
+    "allow-wheel-click",
+    "allow-account-get",
+    "allow-account-set",
+    "allow-account-me",
+    "allow-image-data-url",
+    "allow-chat-open",
+    "allow-marks-list",
+    "allow-mark-restore",
+    "allow-mark-delete",
+    "allow-mark-note",
+    "allow-collections-list",
+    "allow-collection-delete",
+    "allow-collection-reclassify",
+    "allow-collection-open-source",
+    "allow-panel-state",
+    "allow-panel-send",
+    "allow-panel-pin",
+    "allow-panel-close",
+    "allow-plugins-list",
+    "allow-plugin-install",
+    "allow-plugin-uninstall"
   ]
 }

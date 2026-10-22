@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-plugin-ctx"
+description = "Enables the plugin_ctx command without any pre-configured scope."
+commands.allow = ["plugin_ctx"]
+
+[[permission]]
+identifier = "deny-plugin-ctx"
+description = "Denies the plugin_ctx command without any pre-configured scope."
+commands.deny = ["plugin_ctx"]

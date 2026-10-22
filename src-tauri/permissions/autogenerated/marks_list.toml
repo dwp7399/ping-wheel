@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-marks-list"
+description = "Enables the marks_list command without any pre-configured scope."
+commands.allow = ["marks_list"]
+
+[[permission]]
+identifier = "deny-marks-list"
+description = "Denies the marks_list command without any pre-configured scope."
+commands.deny = ["marks_list"]

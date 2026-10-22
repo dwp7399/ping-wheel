@@ -1,0 +1,10 @@
+{
+  "id": "com.pingwheel.copy-link",
+  "name": "复制为 Markdown 链接",
+  "version": "1.0.0",
+  "description": "把当前网页复制成 [标题](链接)，不消耗模型额度",
+  "author": "Ping Wheel",
+  "permissions": ["scene", "clipboard"],
+  "actions": [{ "id": "copy", "label": "复制链接", "icon": "link" }],
+  "main": "main.js"
+}

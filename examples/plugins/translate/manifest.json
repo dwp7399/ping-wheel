@@ -1,0 +1,10 @@
+{
+  "id": "com.pingwheel.translate",
+  "name": "标记翻译",
+  "version": "1.0.0",
+  "description": "把标记处（或选中）的内容翻译成简体中文",
+  "author": "Ping Wheel",
+  "permissions": ["scene", "screenshot", "llm"],
+  "actions": [{ "id": "translate", "label": "翻译", "icon": "translate" }],
+  "main": "main.js"
+}

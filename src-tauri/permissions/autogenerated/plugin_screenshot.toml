@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-plugin-screenshot"
+description = "Enables the plugin_screenshot command without any pre-configured scope."
+commands.allow = ["plugin_screenshot"]
+
+[[permission]]
+identifier = "deny-plugin-screenshot"
+description = "Denies the plugin_screenshot command without any pre-configured scope."
+commands.deny = ["plugin_screenshot"]

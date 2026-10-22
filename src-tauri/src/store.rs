@@ -29,23 +29,6 @@ pub fn captures_dir(app: &AppHandle) -> PathBuf {
 }
 
 const SCHEMA: &str = r#"
-CREATE TABLE IF NOT EXISTS conversations (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  title TEXT NOT NULL DEFAULT '',
-  created_at INTEGER NOT NULL,
-  updated_at INTEGER NOT NULL
-);
-CREATE TABLE IF NOT EXISTS messages (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  conversation_id INTEGER NOT NULL,
-  role TEXT NOT NULL,
-  content TEXT NOT NULL DEFAULT '',
-  reasoning TEXT NOT NULL DEFAULT '',
-  image_path TEXT,
-  status TEXT NOT NULL DEFAULT 'done',
-  created_at INTEGER NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_messages_conv ON messages(conversation_id, id);
 CREATE TABLE IF NOT EXISTS marks (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   created_at INTEGER NOT NULL,
@@ -73,18 +56,10 @@ CREATE TABLE IF NOT EXISTS collections (
   summary TEXT NOT NULL DEFAULT '',
   status TEXT NOT NULL DEFAULT 'pending'
 );
-CREATE TABLE IF NOT EXISTS llm_calls (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  at INTEGER NOT NULL,
-  purpose TEXT NOT NULL,
-  model TEXT NOT NULL,
-  ms INTEGER NOT NULL,
-  prompt_tokens INTEGER NOT NULL DEFAULT 0,
-  completion_tokens INTEGER NOT NULL DEFAULT 0,
-  reasoning_tokens INTEGER NOT NULL DEFAULT 0,
-  ok INTEGER NOT NULL,
-  error TEXT
-);
+-- 旧版本的对话历史和模型调用记录：不再保存，清掉
+DROP TABLE IF EXISTS llm_calls;
+DROP TABLE IF EXISTS messages;
+DROP TABLE IF EXISTS conversations;
 "#;
 
 pub fn open(app: &AppHandle) -> Result<Store, String> {
@@ -95,6 +70,8 @@ pub fn open(app: &AppHandle) -> Result<Store, String> {
     conn.execute_batch("PRAGMA journal_mode=WAL;")
         .and_then(|_| conn.execute_batch(SCHEMA))
         .map_err(|e| format!("初始化数据库失败：{e}"))?;
+    // 迁移：标记增加 bundle_id（应用路径失效时用它启动应用）
+    let _ = conn.execute("ALTER TABLE marks ADD COLUMN bundle_id TEXT", []);
     log::info!("存储：数据库 {}", path.display());
     Ok(Store(Mutex::new(conn)))
 }
@@ -109,145 +86,6 @@ pub fn with<T>(app: &AppHandle, f: impl FnOnce(&Connection) -> rusqlite::Result<
     })
 }
 
-pub fn record_llm_call(
-    app: &AppHandle,
-    purpose: &str,
-    model: &str,
-    ms: u64,
-    result: &Result<crate::llm::Reply, String>,
-) {
-    let (ok, usage, err) = match result {
-        Ok(r) => (1, r.usage.clone(), None),
-        Err(e) => (0, Default::default(), Some(e.clone())),
-    };
-    let _ = with(app, |c| {
-        c.execute(
-            "INSERT INTO llm_calls (at, purpose, model, ms, prompt_tokens, completion_tokens, reasoning_tokens, ok, error)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-            params![
-                now_ms(),
-                purpose,
-                model,
-                ms as i64,
-                usage.prompt_tokens as i64,
-                usage.completion_tokens as i64,
-                usage.reasoning_tokens as i64,
-                ok,
-                err
-            ],
-        )
-    });
-}
-
-// ---------- 对话 ----------
-
-#[derive(Serialize, Clone)]
-pub struct ConversationRow {
-    pub id: i64,
-    pub title: String,
-    pub updated_at: i64,
-}
-
-#[derive(Serialize, Clone)]
-pub struct MessageRow {
-    pub id: i64,
-    pub role: String,
-    pub content: String,
-    pub reasoning: String,
-    pub image_path: Option<String>,
-    pub status: String,
-    pub created_at: i64,
-}
-
-pub fn create_conversation(app: &AppHandle, title: &str) -> Result<i64, String> {
-    with(app, |c| {
-        let t = now_ms();
-        c.execute(
-            "INSERT INTO conversations (title, created_at, updated_at) VALUES (?1, ?2, ?2)",
-            params![title, t],
-        )?;
-        Ok(c.last_insert_rowid())
-    })
-}
-
-pub fn add_message(
-    app: &AppHandle,
-    conversation_id: i64,
-    role: &str,
-    content: &str,
-    image_path: Option<&str>,
-    status: &str,
-) -> Result<i64, String> {
-    with(app, |c| {
-        let t = now_ms();
-        c.execute(
-            "INSERT INTO messages (conversation_id, role, content, image_path, status, created_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            params![conversation_id, role, content, image_path, status, t],
-        )?;
-        c.execute("UPDATE conversations SET updated_at = ?1 WHERE id = ?2", params![t, conversation_id])?;
-        Ok(c.last_insert_rowid())
-    })
-}
-
-pub fn finish_message(app: &AppHandle, id: i64, content: &str, reasoning: &str, status: &str) -> Result<(), String> {
-    with(app, |c| {
-        c.execute(
-            "UPDATE messages SET content = ?1, reasoning = ?2, status = ?3 WHERE id = ?4",
-            params![content, reasoning, status, id],
-        )
-        .map(|_| ())
-    })
-}
-
-pub fn set_conversation_title(app: &AppHandle, id: i64, title: &str) -> Result<(), String> {
-    with(app, |c| {
-        c.execute("UPDATE conversations SET title = ?1 WHERE id = ?2", params![title, id]).map(|_| ())
-    })
-}
-
-pub fn conversation_title(app: &AppHandle, id: i64) -> Result<Option<String>, String> {
-    with(app, |c| {
-        c.query_row("SELECT title FROM conversations WHERE id = ?1", [id], |r| r.get(0)).optional()
-    })
-}
-
-pub fn list_conversations(app: &AppHandle) -> Result<Vec<ConversationRow>, String> {
-    with(app, |c| {
-        let mut st = c.prepare("SELECT id, title, updated_at FROM conversations ORDER BY updated_at DESC LIMIT 200")?;
-        let rows = st.query_map([], |r| Ok(ConversationRow { id: r.get(0)?, title: r.get(1)?, updated_at: r.get(2)? }))?;
-        rows.collect()
-    })
-}
-
-pub fn list_messages(app: &AppHandle, conversation_id: i64) -> Result<Vec<MessageRow>, String> {
-    with(app, |c| {
-        let mut st = c.prepare(
-            "SELECT id, role, content, reasoning, image_path, status, created_at FROM messages
-             WHERE conversation_id = ?1 ORDER BY id",
-        )?;
-        let rows = st.query_map([conversation_id], |r| {
-            Ok(MessageRow {
-                id: r.get(0)?,
-                role: r.get(1)?,
-                content: r.get(2)?,
-                reasoning: r.get(3)?,
-                image_path: r.get(4)?,
-                status: r.get(5)?,
-                created_at: r.get(6)?,
-            })
-        })?;
-        rows.collect()
-    })
-}
-
-pub fn delete_conversation(app: &AppHandle, id: i64) -> Result<(), String> {
-    with(app, |c| {
-        c.execute("DELETE FROM messages WHERE conversation_id = ?1", [id])?;
-        c.execute("DELETE FROM conversations WHERE id = ?1", [id]).map(|_| ())
-    })
-}
-
 // ---------- 标记 ----------
 
 #[derive(Serialize, Clone)]
@@ -256,6 +94,7 @@ pub struct MarkRow {
     pub created_at: i64,
     pub app_name: String,
     pub app_path: Option<String>,
+    pub bundle_id: Option<String>,
     pub window_title: Option<String>,
     pub url: Option<String>,
     pub doc_path: Option<String>,
@@ -266,9 +105,9 @@ pub struct MarkRow {
 pub fn add_mark(app: &AppHandle, s: &Scene, image_path: Option<&str>) -> Result<i64, String> {
     with(app, |c| {
         c.execute(
-            "INSERT INTO marks (created_at, app_name, app_path, window_title, url, doc_path, image_path)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-            params![now_ms(), s.app_name, s.app_path, s.window_title, s.url, s.doc_path, image_path],
+            "INSERT INTO marks (created_at, app_name, app_path, bundle_id, window_title, url, doc_path, image_path)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            params![now_ms(), s.app_name, s.app_path, s.bundle_id, s.window_title, s.url, s.doc_path, image_path],
         )?;
         Ok(c.last_insert_rowid())
     })
@@ -285,10 +124,11 @@ fn mark_from_row(r: &rusqlite::Row) -> rusqlite::Result<MarkRow> {
         doc_path: r.get(6)?,
         image_path: r.get(7)?,
         note: r.get(8)?,
+        bundle_id: r.get(9)?,
     })
 }
 
-const MARK_COLS: &str = "id, created_at, app_name, app_path, window_title, url, doc_path, image_path, note";
+const MARK_COLS: &str = "id, created_at, app_name, app_path, window_title, url, doc_path, image_path, note, bundle_id";
 
 pub fn list_marks(app: &AppHandle) -> Result<Vec<MarkRow>, String> {
     with(app, |c| {
@@ -445,26 +285,5 @@ pub fn delete_collection(app: &AppHandle, id: i64) -> Result<Option<String>, Str
             c.query_row("SELECT image_path FROM collections WHERE id = ?1", [id], |r| r.get(0)).optional()?;
         c.execute("DELETE FROM collections WHERE id = ?1", [id])?;
         Ok(img)
-    })
-}
-
-// ---------- 用量 ----------
-
-#[derive(Serialize)]
-pub struct UsageSummary {
-    pub calls: i64,
-    pub failed: i64,
-    pub prompt_tokens: i64,
-    pub completion_tokens: i64,
-}
-
-pub fn usage_since(app: &AppHandle, since_ms: i64) -> Result<UsageSummary, String> {
-    with(app, |c| {
-        c.query_row(
-            "SELECT COUNT(*), COALESCE(SUM(1 - ok), 0), COALESCE(SUM(prompt_tokens), 0), COALESCE(SUM(completion_tokens), 0)
-             FROM llm_calls WHERE at >= ?1",
-            [since_ms],
-            |r| Ok(UsageSummary { calls: r.get(0)?, failed: r.get(1)?, prompt_tokens: r.get(2)?, completion_tokens: r.get(3)? }),
-        )
     })
 }

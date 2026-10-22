@@ -3,7 +3,8 @@ export type Action =
   | { type: "mark" }
   | { type: "collect" }
   | { type: "chat" }
-  | { type: "open"; target: string };
+  | { type: "open"; target: string }
+  | { type: "plugin"; plugin: string; action: string };
 
 export type ActionType = Action["type"];
 
@@ -43,15 +44,16 @@ export const ICONS = [
 export type IconName = (typeof ICONS)[number] | "menu";
 
 export const ACTION_TYPES: Record<ActionType, { label: string; hint: string; icon: IconName }> = {
-  ask: { label: "问号", hint: "截图并让 AI 解释", icon: "ask" },
+  ask: { label: "?", hint: "理解标记处的内容", icon: "ask" },
   mark: { label: "标记", hint: "记下当前场景，之后一键回来", icon: "mark" },
   collect: { label: "收藏", hint: "截图收藏，自动归类", icon: "collect" },
   chat: { label: "对话", hint: "新开一个对话", icon: "chat" },
   open: { label: "打开", hint: "打开链接、文件或应用", icon: "link" },
+  plugin: { label: "插件", hint: "运行插件", icon: "code" },
 };
 
 export function actionHint(a: Action): string {
-  if (a.type === "ask" && a.prompt.trim()) return `截图并问：${a.prompt.trim()}`;
+  if (a.type === "ask" && a.prompt.trim()) return `看标记处：${a.prompt.trim()}`;
   if (a.type === "open" && a.target.trim()) return `打开 ${a.target.trim()}`;
   return ACTION_TYPES[a.type].hint;
 }
@@ -59,6 +61,7 @@ export function actionHint(a: Action): string {
 export function newAction(type: ActionType): Action {
   if (type === "ask") return { type, prompt: "" };
   if (type === "open") return { type, target: "" };
+  if (type === "plugin") return { type, plugin: "", action: "" };
   return { type };
 }
 
@@ -124,6 +127,6 @@ export const DEFAULT_CONFIG: WheelConfig = {
     { id: "mark", angle: 0, label: "标记", icon: "mark", action: { type: "mark" } },
     { id: "collect", angle: 90, label: "收藏", icon: "collect", action: { type: "collect" } },
     { id: "chat", angle: 180, label: "对话", icon: "chat", action: { type: "chat" } },
-    { id: "ask", angle: 270, label: "问号", icon: "ask", action: { type: "ask", prompt: "" } },
+    { id: "ask", angle: 270, label: "?", icon: "ask", action: { type: "ask", prompt: "" } },
   ],
 };

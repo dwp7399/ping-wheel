@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-plugin-clipboard"
+description = "Enables the plugin_clipboard command without any pre-configured scope."
+commands.allow = ["plugin_clipboard"]
+
+[[permission]]
+identifier = "deny-plugin-clipboard"
+description = "Denies the plugin_clipboard command without any pre-configured scope."
+commands.deny = ["plugin_clipboard"]

@@ -81,6 +81,10 @@ fn run(app: &AppHandle, item: WheelItem) {
             Ok(d) => (Status::Pending, d, true),
             Err(e) => (Status::Failed, e, true),
         },
+        Action::Plugin { plugin, action } => match crate::plugins::run(app, plugin, action) {
+            Ok(d) => (Status::Pending, d, false),
+            Err(e) => (Status::Failed, e, true),
+        },
     };
     if matches!(status, Status::Failed) {
         log::warn!("动作：「{}」失败：{detail}", item.label);
@@ -109,6 +113,16 @@ fn record(app: &AppHandle, item: Option<WheelItem>, status: Status, detail: Stri
     if let Err(e) = app.emit_to("main", "action", ActionPayload { item, at, status, detail }) {
         log::warn!("动作：通知主窗口失败：{e}");
     }
+}
+
+/// 供插件等模块弹提示（status：done / pending / failed）。
+pub fn toast(app: &AppHandle, icon: &str, title: &str, detail: &str, status: &str) {
+    let status = match status {
+        "failed" => Status::Failed,
+        "pending" => Status::Pending,
+        _ => Status::Done,
+    };
+    show_toast(app, ToastPayload { icon: icon.into(), title: title.into(), detail: detail.into(), status });
 }
 
 /// 在唤出点弹出提示窗，一段时间后自动隐藏。

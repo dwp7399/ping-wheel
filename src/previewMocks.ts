@@ -31,13 +31,22 @@ const collections = [
   { id: 5, created_at: now - 60_000, image_path: "/shot/4.png", app_name: "小红书", app_path: null, window_title: "周末露营装备清单",
     url: null, doc_path: null, source_key: "app:com.xingin:周末露营装备清单", title: "周末露营装备清单", category: "", tags: [], summary: "", status: "classifying" },
 ];
-const messages = [
-  { id: 1, role: "user", content: "请解释截图里我正在看的内容：它是什么、关键点是什么、有什么需要注意的。", reasoning: "", image_path: "/shot/1.png", status: "done", created_at: now - 60_000 },
-  { id: 2, role: "assistant", content: "这是 **Rust 所有权** 一章的开头。\n\n- 每个值有且只有一个所有者\n- 所有者离开作用域，值被丢弃\n- 赋值会发生 *move*，原变量失效\n\n```rust\nlet s1 = String::from(\"hi\");\nlet s2 = s1; // s1 不再可用\n```", reasoning: "用户在看 Rust 文档的所有权章节……", image_path: null, status: "done", created_at: now - 55_000 },
+const answer =
+  "这是 **Rust 的所有权转移（move）**：`let s2 = s1;` 之后 `s1` 不再可用。\n\n- `String` 的数据在堆上，赋值只复制指针，所有权交给 `s2`\n- 离开作用域时只会释放一次，避免重复释放\n- 想保留 `s1`，用 `s1.clone()` 深拷贝";
+
+const plugins = [
+  {
+    manifest: {
+      id: "com.pingwheel.translate", name: "截图翻译", version: "1.0.0", description: "把标记处的内容翻译成中文", author: "Ping Wheel",
+      permissions: ["scene", "screenshot", "llm"], actions: [{ id: "translate", label: "翻译", icon: "translate" }],
+    },
+    permission_labels: ["读取当前应用、窗口、链接和标记处的文字", "截取当前屏幕", "调用通用模型接口（消耗你的模型额度）"],
+  },
 ];
 
 export function installPreviewMocks(label: string) {
-  mockWindows(label, "main", "chat", "wheel", "toast");
+  mockWindows(label, "main", "wheel", "toast", "panel-1");
+  const sp = new URLSearchParams(location.search);
   mockIPC(
     (cmd, args) => {
       const a = (args ?? {}) as Record<string, unknown>;
@@ -48,20 +57,25 @@ export function installPreviewMocks(label: string) {
           return marks;
         case "collections_list":
           return collections;
-        case "chat_list":
-          return [{ id: 1, title: "问号 · Rust 所有权与借用", updated_at: now - 55_000 }];
-        case "chat_messages":
-          return messages;
-        case "chat_new":
-          return 99;
         case "image_data_url":
           return PIXEL;
-        case "settings_get":
-          return { base_url: "https://ark.cn-beijing.volces.com/api/plan/v3", model: "glm-5.3-flash", has_key: true, key_hint: "…a1b2" };
-        case "usage_today":
-          return { calls: 12, failed: 1, prompt_tokens: 18234, completion_tokens: 4410 };
-        case "llm_test":
-          return "连接正常（模型 glm-5-3-flash-260828）";
+        case "account_get":
+          return { server_url: "http://127.0.0.1:8787", has_token: true, token_hint: "…167d" };
+        case "account_me":
+          return {
+            user: { id: 1, name: "测试用户", email: "test@example.com" },
+            entitlements: {
+              pro: { active: true, ends_at: now + 29 * 86_400_000 },
+              model: { active: true, plan: "模型 · 基础", quota: 2.45, used: 0.38, remaining: 2.07, cycle_end: now + 29 * 86_400_000, ends_at: now + 29 * 86_400_000 },
+              currency: "CNY",
+            },
+          };
+        case "plugins_list":
+          return plugins;
+        case "panel_state":
+          return sp.get("state") === "thinking"
+            ? { kind: "ask", title: "Rust 所有权与借用", pinned: false, turns: [], content: null, pending: "", thinking: true, error: null }
+            : { kind: "ask", title: "Rust 所有权与借用 - Rust 程序设计语言", pinned: false, turns: [{ role: "assistant", content: answer }, { role: "user", content: "那 Copy 类型呢？" }, { role: "assistant", content: "实现了 `Copy` 的类型（整数、bool、char 等）赋值时按位复制，原变量仍可用。" }], content: null, pending: null, thinking: false, error: null };
         case "mark_restore":
           return `已打开 ${marks.find((m) => m.id === a.id)?.url ?? ""}`;
         default:

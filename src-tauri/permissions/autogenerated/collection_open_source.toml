@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-collection-open-source"
+description = "Enables the collection_open_source command without any pre-configured scope."
+commands.allow = ["collection_open_source"]
+
+[[permission]]
+identifier = "deny-collection-open-source"
+description = "Denies the collection_open_source command without any pre-configured scope."
+commands.deny = ["collection_open_source"]

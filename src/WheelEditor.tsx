@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Wheel, { WHEEL_SIZE, WheelSource, layoutFor, polar } from "./Wheel";
 import { Icon } from "./icons";
+import { PluginInfo, api } from "./api";
 import {
   ACTION_TYPES,
   ANGLE_STEP,
@@ -104,13 +105,41 @@ export default function WheelEditor({
   const update = (i: number, patch: Partial<WheelItem>) =>
     setItems((list) => list.map((it, j) => (j === i ? { ...it, ...patch } : it)));
 
-  const add = (type: ActionType) => {
+  const [plugins, setPlugins] = useState<PluginInfo[]>([]);
+  useEffect(() => {
+    api.plugins().then(setPlugins).catch(() => setPlugins([]));
+  }, []);
+  // 插件动作：「插件 id::动作 id」→ 插件信息
+  const pluginActions = useMemo(
+    () =>
+      plugins.flatMap((p) =>
+        p.manifest.actions.map((a) => ({ key: `${p.manifest.id}::${a.id}`, plugin: p.manifest, action: a })),
+      ),
+    [plugins],
+  );
+
+  const insert = (item: WheelItem) => {
     if (items.length >= MAX_ITEMS || pending === null) return;
-    const meta = ACTION_TYPES[type];
-    const item = { id: newId(), angle: pending, label: meta.label, icon: meta.icon, action: newAction(type) };
-    const next = byAngle([...items, item]);
+    const next = byAngle([...items, { ...item, angle: pending }]);
     setItems(next);
-    setFocus(next.indexOf(item));
+    setFocus(next.findIndex((x) => x.id === item.id));
+  };
+
+  const add = (type: ActionType) => {
+    const meta = ACTION_TYPES[type];
+    insert({ id: newId(), angle: 0, label: meta.label, icon: meta.icon, action: newAction(type) });
+  };
+
+  const addPlugin = (key: string) => {
+    const pa = pluginActions.find((x) => x.key === key);
+    if (!pa) return;
+    insert({
+      id: newId(),
+      angle: 0,
+      label: pa.action.label.slice(0, 6),
+      icon: pa.action.icon,
+      action: { type: "plugin", plugin: pa.plugin.id, action: pa.action.id },
+    });
   };
 
   const save = async () => {
@@ -210,13 +239,24 @@ export default function WheelEditor({
               />
               <select
                 value={it.action.type}
-                onChange={(e) => update(i, { action: newAction(e.target.value as ActionType) })}
+                onChange={(e) => {
+                  const t = e.target.value as ActionType;
+                  const first = pluginActions[0];
+                  update(i, {
+                    action:
+                      t === "plugin" && first
+                        ? { type: "plugin", plugin: first.plugin.id, action: first.action.id }
+                        : newAction(t),
+                  });
+                }}
               >
-                {(Object.keys(ACTION_TYPES) as ActionType[]).map((t) => (
-                  <option key={t} value={t}>
-                    {ACTION_TYPES[t].label}
-                  </option>
-                ))}
+                {(Object.keys(ACTION_TYPES) as ActionType[])
+                  .filter((t) => t !== "plugin" || pluginActions.length > 0 || it.action.type === "plugin")
+                  .map((t) => (
+                    <option key={t} value={t}>
+                      {ACTION_TYPES[t].label}
+                    </option>
+                  ))}
               </select>
               {it.action.type === "ask" && (
                 <input
@@ -234,7 +274,28 @@ export default function WheelEditor({
                   placeholder="https://… 或 /Applications/…"
                 />
               )}
-              {it.action.type !== "ask" && it.action.type !== "open" && <span className="extra-input" />}
+              {it.action.type === "plugin" && (
+                <select
+                  className="extra-input"
+                  value={`${it.action.plugin}::${it.action.action}`}
+                  onChange={(e) => {
+                    const pa = pluginActions.find((x) => x.key === e.target.value);
+                    if (pa) update(i, { action: { type: "plugin", plugin: pa.plugin.id, action: pa.action.id } });
+                  }}
+                >
+                  {!pluginActions.some((x) => it.action.type === "plugin" && x.key === `${it.action.plugin}::${it.action.action}`) && (
+                    <option value={`${it.action.plugin}::${it.action.action}`}>（插件未安装）</option>
+                  )}
+                  {pluginActions.map((x) => (
+                    <option key={x.key} value={x.key}>
+                      {x.plugin.name} · {x.action.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {it.action.type !== "ask" && it.action.type !== "open" && it.action.type !== "plugin" && (
+                <span className="extra-input" />
+              )}
               <div className="row-buttons">
                 <button
                   title="删除"
@@ -264,7 +325,17 @@ export default function WheelEditor({
                 </option>
               ))}
             </select>
-            {(Object.keys(ACTION_TYPES) as ActionType[]).map((t) => (
+            {pluginActions.map((x) => (
+              <button
+                key={x.key}
+                disabled={items.length >= MAX_ITEMS || pending === null}
+                onClick={() => addPlugin(x.key)}
+                title={x.plugin.description}
+              >
+                + {x.action.label}
+              </button>
+            ))}
+            {(Object.keys(ACTION_TYPES) as ActionType[]).filter((t) => t !== "plugin").map((t) => (
               <button key={t} disabled={items.length >= MAX_ITEMS || pending === null} onClick={() => add(t)}>
                 + {ACTION_TYPES[t].label}
               </button>

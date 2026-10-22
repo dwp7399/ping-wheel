@@ -37,16 +37,6 @@
         "visibleOnAllWorkspaces": true
       },
       {
-        "label": "chat",
-        "title": "对话",
-        "width": 460,
-        "height": 640,
-        "minWidth": 360,
-        "minHeight": 420,
-        "visible": false,
-        "alwaysOnTop": true
-      },
-      {
         "label": "toast",
         "title": "toast",
         "width": 360,

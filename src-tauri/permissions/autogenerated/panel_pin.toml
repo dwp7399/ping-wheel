@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-panel-pin"
+description = "Enables the panel_pin command without any pre-configured scope."
+commands.allow = ["panel_pin"]
+
+[[permission]]
+identifier = "deny-panel-pin"
+description = "Denies the panel_pin command without any pre-configured scope."
+commands.deny = ["panel_pin"]

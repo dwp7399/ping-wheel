@@ -10,18 +10,24 @@
 
 | 动作 | 说明 |
 |---|---|
-| 菜单（中心） | 主窗口：标记、收藏、轮盘设置、模型设置 |
-| 问号 | 截取光标所在屏幕，连同当前应用、窗口、链接一起交给模型解释，在对话窗口里流式回答，可继续追问 |
-| 对话 | 打开对话窗口，新开一个对话 |
-| 标记 | 记下当前的网页链接 / 文件 / 应用和截图，之后在「标记」里一键回到当时的场景 |
-| 收藏 | 截图收藏，模型自动生成标题、分类、标签和摘要；同一链接或文件的收藏归在一起 |
+| 菜单（中心） | 主窗口：标记、收藏、轮盘、插件、账号 |
+| ? | 截取整块屏幕并圈出标记位置，连同标记处 / 附近 / 选中的文字和网页正文一起交给模型，判断你想知道什么；结果显示在悬浮面板里，可追问 |
+| 对话 | 打开悬浮对话面板 |
+| 标记 | 记下当前的网页链接 / 文件 / 应用和截图，之后一键回到当时的场景（应用没开会自动启动） |
+| 收藏 | 截图收藏，自动生成标题、分类、标签和摘要；同一链接或文件的收藏归在一起 |
 | 打开 | 打开链接、文件或应用 |
+| 插件 | 运行自定义插件的动作，见 [插件开发](docs/plugins.md) |
 
-首次使用需要授权：辅助功能（跟踪鼠标、读窗口信息）、屏幕录制（截图）、自动化（读浏览器当前链接）。
+悬浮面板不常驻：点别处或按 Esc 就关闭，关闭即结束，不保存对话；点图钉可以把它钉在桌面上。面板只显示「思考中」和回答，不显示截图和模型的思考过程。
 
-### 模型
+首次使用需要授权：辅助功能（跟踪鼠标、读界面文字）、屏幕录制（截图）、自动化（读浏览器链接和网页内容）。想让「?」读到网页正文，还需要在 Chrome 菜单「显示 → 开发者 → 允许 Apple 事件中的 JavaScript」（Safari 在「开发」菜单）里开启。
 
-所有模型调用都经过 `src-tauri/src/llm.rs` 这一个入口（OpenAI 兼容的 `/chat/completions`，流式），每次调用都会记日志并写入本地 `llm_calls` 表，以后切换网关、计量、限流都只改这里。默认对接火山方舟 Agent Plan（`https://ark.cn-beijing.volces.com/api/plan/v3`，模型 `glm-5.3-flash`），在主窗口「模型」页填写 Key。
+### 模型能力与订阅
+
+客户端不直连任何模型服务，也不记录模型调用。问号、对话、收藏归类和插件的模型调用都经过 Ping Wheel 服务（`src-tauri/src/cloud.rs`），各功能的系统提示词、模型选择和计费都在服务端。在主窗口「账号」页填写服务地址和账号令牌。
+
+- 高级功能：解锁自定义插件
+- 模型能力：按月订阅，服务端按实际用量从额度里扣除
 
 ## 开发
 
@@ -32,7 +38,7 @@ pnpm tauri dev
 
 App 只在菜单栏显示图标，不出现在 Dock 里。首次运行需要在「系统设置 → 隐私与安全性 → 辅助功能」里授权，用于跟踪鼠标和拦截轮盘上的点击；没有授权时会退回轮询方式。
 
-在浏览器打开 `http://localhost:1420` 可以单独调轮盘界面：`?n=8` 指定数量，`?view=editor` 是设置页，`?view=toast` 是执行提示，`?view=main` / `?view=chat` 用假数据预览主窗口和对话窗口。
+在浏览器打开 `http://localhost:1420` 可以单独调轮盘界面：`?n=8` 指定数量，`?view=editor` 是设置页，`?view=toast` 是执行提示，`?view=main` / `?view=panel` 用假数据预览主窗口和悬浮面板。
 
 ## 发布
 
@@ -45,10 +51,14 @@ App 只在菜单栏显示图标，不出现在 Dock 里。首次运行需要在�
 - `src-tauri/src/config.rs`：轮盘配置读写
 - `src-tauri/src/actions.rs`：动作分发与执行提示
 - `src-tauri/src/features.rs`：问号、对话、标记、收藏
-- `src-tauri/src/llm.rs`：统一的模型调用入口
-- `src-tauri/src/scene.rs`：场景采集（应用、窗口、链接、文件）与截图
-- `src-tauri/src/store.rs`：SQLite 存储
-- `src-tauri/src/settings.rs`：模型设置
+- `src-tauri/src/cloud.rs`：服务端能力客户端（所有模型调用都经过这里）
+- `src-tauri/src/panel.rs`：悬浮面板
+- `src-tauri/src/plugins.rs`：插件安装、卸载与运行
+- `src-tauri/src/scene.rs`：场景采集（应用、窗口、链接、文件、标记处文字、网页正文）
+- `src-tauri/src/shot.rs`：截图、标记绘制与裁剪
+- `src-tauri/src/store.rs`：SQLite 存储（标记、收藏）
+- `src-tauri/src/settings.rs`：账号设置
 - `src/Wheel.tsx`：轮盘界面；`src/WheelEditor.tsx`：设置；`src/Toast.tsx`：执行提示
-- `src/ChatWindow.tsx`：对话窗口；`src/pages.tsx`：标记、收藏、模型设置页
+- `src/Panel.tsx`：悬浮面板；`src/PluginRunner.ts`：插件运行器；`src/pages.tsx`：标记、收藏、插件、账号页
+- `examples/plugins/`：示例插件；`scripts/pack-plugin.sh`：打包插件
 - `site/index.html`：下载页

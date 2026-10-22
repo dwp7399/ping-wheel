@@ -1,21 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import type { IconName } from "./types";
 
-export type Conversation = { id: number; title: string; updated_at: number };
-export type ChatMessage = {
-  id: number;
-  role: "user" | "assistant";
-  content: string;
-  reasoning: string;
-  image_path: string | null;
-  status: "done" | "streaming" | "error";
-  created_at: number;
-};
 export type Mark = {
   id: number;
   created_at: number;
   app_name: string;
   app_path: string | null;
+  bundle_id: string | null;
   window_title: string | null;
   url: string | null;
   doc_path: string | null;
@@ -38,17 +30,48 @@ export type Collection = {
   summary: string;
   status: "pending" | "classifying" | "done" | "failed";
 };
-export type SettingsView = { base_url: string; model: string; has_key: boolean; key_hint: string };
-export type Usage = { calls: number; failed: number; prompt_tokens: number; completion_tokens: number };
+export type AccountView = { server_url: string; has_token: boolean; token_hint: string };
+export type Entitlements = {
+  pro: { active: boolean; ends_at: number | null };
+  model: {
+    active: boolean;
+    plan: string | null;
+    quota: number;
+    used: number;
+    remaining: number;
+    cycle_end: number | null;
+    ends_at: number | null;
+  };
+  currency: string;
+};
+export type Me = { user: { id: number; name: string; email: string }; entitlements: Entitlements };
+
+export type PluginAction = { id: string; label: string; icon: IconName };
+export type PluginManifest = {
+  id: string;
+  name: string;
+  version: string;
+  description: string;
+  author: string;
+  permissions: string[];
+  actions: PluginAction[];
+};
+export type PluginInfo = { manifest: PluginManifest; permission_labels: string[] };
+
+export type Turn = { role: "user" | "assistant"; content: string };
+export type PanelState = {
+  kind: "ask" | "chat" | "result";
+  title: string;
+  pinned: boolean;
+  turns: Turn[];
+  content: string | null;
+  pending: string | null;
+  thinking: boolean;
+  error: string | null;
+};
+export type PanelEvent = { type: "thinking" | "text" | "done" | "error"; text: string };
 
 export const api = {
-  chatNew: () => invoke<number>("chat_new"),
-  chatList: () => invoke<Conversation[]>("chat_list"),
-  chatMessages: (conversationId: number) => invoke<ChatMessage[]>("chat_messages", { conversationId }),
-  chatSend: (conversationId: number, text: string) => invoke<void>("chat_send", { conversationId, text }),
-  chatDelete: (conversationId: number) => invoke<void>("chat_delete", { conversationId }),
-  chatOpenWindow: (conversationId?: number) => invoke<void>("chat_open_window", { conversationId }),
-
   marks: () => invoke<Mark[]>("marks_list"),
   markRestore: (id: number) => invoke<string>("mark_restore", { id }),
   markDelete: (id: number) => invoke<void>("mark_delete", { id }),
@@ -59,11 +82,20 @@ export const api = {
   collectionReclassify: (id: number) => invoke<void>("collection_reclassify", { id }),
   collectionOpenSource: (id: number) => invoke<void>("collection_open_source", { id }),
 
-  settings: () => invoke<SettingsView>("settings_get"),
-  setLlm: (baseUrl: string, model: string, apiKey: string | null) =>
-    invoke<SettingsView>("settings_set_llm", { baseUrl, model, apiKey }),
-  llmTest: () => invoke<string>("llm_test"),
-  usageToday: () => invoke<Usage>("usage_today"),
+  account: () => invoke<AccountView>("account_get"),
+  setAccount: (serverUrl: string, token: string | null) => invoke<AccountView>("account_set", { serverUrl, token }),
+  me: () => invoke<Me>("account_me"),
+
+  chatOpen: () => invoke<void>("chat_open"),
+
+  plugins: () => invoke<PluginInfo[]>("plugins_list"),
+  pluginInstall: (path: string) => invoke<PluginManifest>("plugin_install", { path }),
+  pluginUninstall: (id: string) => invoke<void>("plugin_uninstall", { id }),
+
+  panelState: () => invoke<PanelState>("panel_state"),
+  panelSend: (text: string) => invoke<void>("panel_send", { text }),
+  panelPin: (pinned: boolean) => invoke<void>("panel_pin", { pinned }),
+  panelClose: () => invoke<void>("panel_close"),
 };
 
 /** 截图按路径缓存成 data URL */
@@ -92,4 +124,13 @@ export function timeText(ms: number) {
   return sameDay
     ? d.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })
     : d.toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+export function dateText(ms: number | null) {
+  return ms ? new Date(ms).toLocaleDateString("zh-CN") : "-";
+}
+
+export function money(n: number, currency: string) {
+  const v = Number(n ?? 0).toFixed(2);
+  return currency === "CNY" ? `¥${v}` : `${v} ${currency}`;
 }

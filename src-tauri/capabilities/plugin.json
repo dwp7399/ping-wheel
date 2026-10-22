@@ -1,0 +1,21 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "plugin",
+  "description": "插件运行窗口：只允许插件 API，具体能力再按插件声明的权限检查",
+  "windows": [
+    "plugin-*"
+  ],
+  "permissions": [
+    "allow-plugin-source",
+    "allow-plugin-ctx",
+    "allow-plugin-screenshot",
+    "allow-plugin-llm",
+    "allow-plugin-toast",
+    "allow-plugin-show",
+    "allow-plugin-clipboard",
+    "allow-plugin-open",
+    "allow-plugin-storage-get",
+    "allow-plugin-storage-set",
+    "allow-plugin-finish"
+  ]
+}

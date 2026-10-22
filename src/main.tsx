@@ -30,15 +30,13 @@ async function boot() {
       );
       return;
     }
-    if (view === "main" || view === "chat") {
+    if (view === "main" || view === "panel") {
       const { installPreviewMocks } = await import("./previewMocks");
-      installPreviewMocks(view);
+      installPreviewMocks(view === "panel" ? "panel-1" : "main");
       document.documentElement.dataset.window = view;
-      if (view === "chat") {
-        const { default: ChatWindow } = await import("./ChatWindow");
-        root.render(<ChatWindow />);
-        const { emit } = await import("@tauri-apps/api/event");
-        setTimeout(() => emit("chat:open", 1), 100);
+      if (view === "panel") {
+        const { default: Panel } = await import("./Panel");
+        root.render(<Panel />);
       } else {
         const { default: MainWindow } = await import("./MainWindow");
         root.render(<MainWindow />);
@@ -68,7 +66,8 @@ async function boot() {
 
   const { getCurrentWindow } = await import("@tauri-apps/api/window");
   const label = getCurrentWindow().label;
-  document.documentElement.dataset.window = label;
+  // panel-N / plugin-N 归为一类
+  document.documentElement.dataset.window = label.replace(/-\d+$/, "");
 
   if (label === "toast") {
     const [{ default: Toast }, { listen }] = await Promise.all([
@@ -86,9 +85,12 @@ async function boot() {
         }}
       />,
     );
-  } else if (label === "chat") {
-    const { default: ChatWindow } = await import("./ChatWindow");
-    root.render(<ChatWindow />);
+  } else if (label.startsWith("panel-")) {
+    const { default: Panel } = await import("./Panel");
+    root.render(<Panel />);
+  } else if (label.startsWith("plugin-")) {
+    const { runPlugin } = await import("./PluginRunner");
+    runPlugin();
   } else if (label === "wheel") {
     const { default: WheelWindow } = await import("./WheelWindow");
     root.render(<WheelWindow />);

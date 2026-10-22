@@ -32,6 +32,11 @@ pub enum Action {
         #[serde(default)]
         target: String,
     },
+    /// 运行插件的某个动作
+    Plugin {
+        plugin: String,
+        action: String,
+    },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -63,7 +68,7 @@ impl Default for WheelConfig {
                 item("mark", 0.0, "标记", "mark", Action::Mark),
                 item("collect", 90.0, "收藏", "collect", Action::Collect),
                 item("chat", 180.0, "对话", "chat", Action::Chat),
-                item("ask", 270.0, "问号", "ask", Action::Ask { prompt: String::new() }),
+                item("ask", 270.0, "?", "ask", Action::Ask { prompt: String::new() }),
             ],
         }
     }
@@ -88,6 +93,11 @@ impl WheelConfig {
             if it.label.trim().is_empty() {
                 return Err("名称不能为空".into());
             }
+            if let Action::Plugin { plugin, action } = &it.action {
+                if plugin.is_empty() || action.is_empty() {
+                    return Err(format!("「{}」还没有选择插件动作", it.label));
+                }
+            }
             if !ids.insert(it.id.as_str()) {
                 return Err(format!("重复的 id：{}", it.id));
             }
@@ -110,7 +120,13 @@ pub fn load(app: &AppHandle) -> WheelConfig {
     };
     match fs::read_to_string(&path) {
         Ok(text) => match serde_json::from_str::<WheelConfig>(&text) {
-            Ok(cfg) if cfg.validate().is_ok() => {
+            Ok(mut cfg) if cfg.validate().is_ok() => {
+                // 迁移：问号的名称统一为「?」
+                for it in cfg.items.iter_mut() {
+                    if matches!(it.action, Action::Ask { .. }) && it.label == "问号" {
+                        it.label = "?".into();
+                    }
+                }
                 log::info!("配置：已读取 {}（{} 项）", path.display(), cfg.items.len());
                 cfg
             }
@@ -136,6 +152,24 @@ fn save(app: &AppHandle, cfg: &WheelConfig) -> Result<(), String> {
     fs::write(&path, text).map_err(|e| format!("写入 {} 失败：{e}", path.display()))?;
     log::info!("配置：已保存 {}（{} 项）", path.display(), cfg.items.len());
     Ok(())
+}
+
+/// 卸载插件时，把轮盘上引用它的方向项去掉（至少保留一项）。
+pub fn remove_plugin_items(app: &AppHandle, plugin_id: &str) {
+    let state = app.state::<ConfigState>();
+    let mut cfg = state.0.lock().unwrap().clone();
+    let before = cfg.items.len();
+    cfg.items.retain(|it| !matches!(&it.action, Action::Plugin { plugin, .. } if plugin == plugin_id));
+    if cfg.items.len() == before {
+        return;
+    }
+    if cfg.items.is_empty() {
+        cfg = WheelConfig::default();
+    }
+    if save(app, &cfg).is_ok() {
+        *state.0.lock().unwrap() = cfg.clone();
+        let _ = app.emit("config:changed", cfg);
+    }
 }
 
 #[tauri::command]
