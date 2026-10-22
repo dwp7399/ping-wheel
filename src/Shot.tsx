@@ -14,7 +14,7 @@ export default function Shot({ path, className, onClick }: { path: string; class
     };
   }, [path]);
   return src ? (
-    <img className={className} src={src} onClick={onClick} alt="截图" />
+    <img className={className} src={src} onClick={onClick} alt="" />
   ) : (
     <div className={`${className ?? ""} shot-placeholder`} />
   );

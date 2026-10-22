@@ -1,3 +1,5 @@
+import { t } from "./i18n";
+
 export type Action =
   | { type: "ask"; prompt: string }
   | { type: "mark" }
@@ -44,17 +46,17 @@ export const ICONS = [
 export type IconName = (typeof ICONS)[number] | "menu";
 
 export const ACTION_TYPES: Record<ActionType, { label: string; hint: string; icon: IconName }> = {
-  ask: { label: "?", hint: "理解标记处的内容", icon: "ask" },
-  mark: { label: "标记", hint: "记下当前场景，之后一键回来", icon: "mark" },
-  collect: { label: "收藏", hint: "截图收藏，自动归类", icon: "collect" },
-  chat: { label: "对话", hint: "新开一个对话", icon: "chat" },
-  open: { label: "打开", hint: "打开链接、文件或应用", icon: "link" },
-  plugin: { label: "插件", hint: "运行插件", icon: "code" },
+  ask: { label: "?", hint: t("理解标记处的内容"), icon: "ask" },
+  mark: { label: t("标记"), hint: t("记下当前场景，之后一键回来"), icon: "mark" },
+  collect: { label: t("收藏"), hint: t("截图收藏，自动归类"), icon: "collect" },
+  chat: { label: t("对话"), hint: t("新开一个对话"), icon: "chat" },
+  open: { label: t("打开"), hint: t("打开链接、文件或应用"), icon: "link" },
+  plugin: { label: t("插件"), hint: t("运行插件"), icon: "code" },
 };
 
 export function actionHint(a: Action): string {
-  if (a.type === "ask" && a.prompt.trim()) return `看标记处：${a.prompt.trim()}`;
-  if (a.type === "open" && a.target.trim()) return `打开 ${a.target.trim()}`;
+  if (a.type === "ask" && a.prompt.trim()) return t("看标记处：{prompt}", { prompt: a.prompt.trim() });
+  if (a.type === "open" && a.target.trim()) return t("打开 {target}", { target: a.target.trim() });
   return ACTION_TYPES[a.type].hint;
 }
 
@@ -71,7 +73,7 @@ export const ANGLE_STEP = 22.5;
 export const DIRECTIONS: { angle: number; name: string }[] = [
   "上", "上偏右", "右上", "右偏上", "右", "右偏下", "右下", "下偏右",
   "下", "下偏左", "左下", "左偏下", "左", "左偏上", "左上", "上偏左",
-].map((name, i) => ({ angle: i * ANGLE_STEP, name }));
+].map((name, i) => ({ angle: i * ANGLE_STEP, name: t(name) }));
 
 export const directionName = (angle: number) =>
   DIRECTIONS[Math.round(angle / ANGLE_STEP) % DIRECTIONS.length].name;
@@ -124,9 +126,9 @@ export function suggestAngle(angles: number[]): number | null {
 
 export const DEFAULT_CONFIG: WheelConfig = {
   items: [
-    { id: "mark", angle: 0, label: "标记", icon: "mark", action: { type: "mark" } },
-    { id: "collect", angle: 90, label: "收藏", icon: "collect", action: { type: "collect" } },
-    { id: "chat", angle: 180, label: "对话", icon: "chat", action: { type: "chat" } },
+    { id: "mark", angle: 0, label: t("标记"), icon: "mark", action: { type: "mark" } },
+    { id: "collect", angle: 90, label: t("收藏"), icon: "collect", action: { type: "collect" } },
+    { id: "chat", angle: 180, label: t("对话"), icon: "chat", action: { type: "chat" } },
     { id: "ask", angle: 270, label: "?", icon: "ask", action: { type: "ask", prompt: "" } },
   ],
 };

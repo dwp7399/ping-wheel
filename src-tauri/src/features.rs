@@ -17,7 +17,7 @@ use crate::store;
 /// 等轮盘窗口消失后截取光标所在屏幕。
 fn screenshot(app: &AppHandle) -> Result<shot::Capture, String> {
     if !shot::ensure_screen_access() {
-        return Err("需要屏幕录制权限：请在「系统设置 → 隐私与安全性 → 屏幕录制」里允许 Ping Wheel，然后重启它".into());
+        return Err(t!("需要屏幕录制权限：请在「系统设置 → 隐私与安全性 → 屏幕录制」里允许 Ping Wheel，然后重启它"));
     }
     std::thread::sleep(std::time::Duration::from_millis(120));
     let (x, y) = crate::wheel::anchor(app);
@@ -31,11 +31,11 @@ fn screenshot(app: &AppHandle) -> Result<shot::Capture, String> {
 pub fn image_data_url(app: AppHandle, path: String) -> Result<String, String> {
     use base64::Engine;
     let dir = store::captures_dir(&app).canonicalize().map_err(|e| e.to_string())?;
-    let p = Path::new(&path).canonicalize().map_err(|_| "图片不存在".to_string())?;
+    let p = Path::new(&path).canonicalize().map_err(|_| t!("图片不存在"))?;
     if !p.starts_with(&dir) {
-        return Err("不允许读取该路径".into());
+        return Err(t!("不允许读取该路径"));
     }
-    let bytes = std::fs::read(&p).map_err(|e| format!("读取图片失败：{e}"))?;
+    let bytes = std::fs::read(&p).map_err(|e| t!("读取图片失败：{e}", e = e))?;
     Ok(format!("data:image/png;base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes)))
 }
 
@@ -62,14 +62,14 @@ pub fn ask(app: &AppHandle, question: &str) -> Result<String, String> {
     });
     let title = scene.headline();
     panel::open(app, Kind::Ask { body }, &title, true)?;
-    Ok(format!("正在理解「{}」", short(&title, 18)))
+    Ok(t!("正在理解「{title}」", title = short(&title, 18)))
 }
 
 // ---------- 对话 ----------
 
 pub fn chat(app: &AppHandle) -> Result<String, String> {
     panel::open(app, Kind::Chat, "", false)?;
-    Ok("已打开对话".into())
+    Ok(t!("已打开对话"))
 }
 
 #[tauri::command]
@@ -92,11 +92,11 @@ pub fn mark(app: &AppHandle) -> Result<String, String> {
     let id = store::add_mark(app, &scene, image.as_deref())?;
     let _ = app.emit("marks:changed", id);
     let how = if scene.url.is_some() {
-        "可回到这个网页"
+        t!("可回到这个网页")
     } else if scene.doc_path.is_some() {
-        "可回到这个文件"
+        t!("可回到这个文件")
     } else {
-        "可回到这个应用"
+        t!("可回到这个应用")
     };
     log::info!("标记：已保存 {id}「{}」", scene.headline());
     Ok(format!("{}（{how}）", short(&scene.headline(), 18)))
@@ -111,12 +111,12 @@ fn open_with(app_path: Option<&str>, bundle_id: Option<&str>, target: Option<&st
     } else if let Some(b) = bundle_id.filter(|b| !b.is_empty()) {
         cmd.arg("-b").arg(b);
     } else if target.is_none() {
-        return Err("找不到对应的应用".into());
+        return Err(t!("找不到对应的应用"));
     }
     if let Some(t) = target {
         cmd.arg(t);
     }
-    let out = cmd.output().map_err(|e| format!("调用 open 失败：{e}"))?;
+    let out = cmd.output().map_err(|e| t!("调用 open 失败：{e}", e = e))?;
     if out.status.success() {
         Ok(())
     } else {
@@ -131,7 +131,7 @@ pub fn marks_list(app: AppHandle) -> Result<Vec<store::MarkRow>, String> {
 
 #[tauri::command]
 pub fn mark_restore(app: AppHandle, id: i64) -> Result<String, String> {
-    let m = store::get_mark(&app, id)?.ok_or("标记不存在")?;
+    let m = store::get_mark(&app, id)?.ok_or_else(|| t!("标记不存在"))?;
     let target = m.url.clone().or_else(|| m.doc_path.clone().filter(|p| Path::new(p).exists()));
     let result = open_with(m.app_path.as_deref(), m.bundle_id.as_deref(), target.as_deref());
     match &result {
@@ -139,9 +139,9 @@ pub fn mark_restore(app: AppHandle, id: i64) -> Result<String, String> {
         Err(e) => log::warn!("标记：回到 {id} 失败：{e}"),
     }
     result.map(|_| match (&m.url, &m.doc_path) {
-        (Some(u), _) => format!("已打开 {u}"),
-        (_, Some(p)) => format!("已打开 {p}"),
-        _ => format!("已切换到 {}", m.app_name),
+        (Some(u), _) => t!("已打开 {target}", target = u),
+        (_, Some(p)) => t!("已打开 {target}", target = p),
+        _ => t!("已切换到 {app}", app = m.app_name),
     })
 }
 
@@ -171,7 +171,7 @@ pub fn collect(app: &AppHandle) -> Result<String, String> {
     let app2 = app.clone();
     let context = scene.context_json(None);
     tauri::async_runtime::spawn(async move { classify(app2, id, Some(context)).await });
-    Ok(format!("已收藏「{}」，正在自动归类", short(&scene.headline(), 18)))
+    Ok(t!("已收藏「{title}」，正在自动归类", title = short(&scene.headline(), 18)))
 }
 
 async fn classify(app: AppHandle, id: i64, context: Option<serde_json::Value>) {
@@ -236,7 +236,7 @@ pub fn collection_reclassify(app: AppHandle, id: i64) {
 
 #[tauri::command]
 pub fn collection_open_source(app: AppHandle, id: i64) -> Result<(), String> {
-    let c = store::get_collection(&app, id)?.ok_or("收藏不存在")?;
+    let c = store::get_collection(&app, id)?.ok_or_else(|| t!("收藏不存在"))?;
     let target = c.url.clone().or_else(|| c.doc_path.clone());
     open_with(c.app_path.as_deref(), None, target.as_deref())
 }

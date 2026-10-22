@@ -50,7 +50,7 @@ struct ActionPayload {
 pub fn dispatch(app: &AppHandle, item: Option<WheelItem>) {
     let Some(item) = item else {
         show_main(app);
-        record(app, None, Status::Done, "打开菜单".into());
+        record(app, None, Status::Done, t!("打开菜单"));
         return;
     };
     // 截图、读场景、写库都可能耗时，放到后台线程，避免卡住快捷键 / 鼠标事件所在线程
@@ -62,7 +62,7 @@ fn run(app: &AppHandle, item: WheelItem) {
     // (状态, 说明, 是否弹提示)：问号和对话会直接打开对话窗口，成功时不再弹提示
     let (status, detail, toast) = match &item.action {
         Action::Open { target } => match open_target(app, target) {
-            Ok(()) => (Status::Done, format!("已打开 {}", target.trim()), true),
+            Ok(()) => (Status::Done, t!("已打开 {target}", target = target.trim()), true),
             Err(e) => (Status::Failed, e, true),
         },
         Action::Ask { prompt } => match crate::features::ask(app, prompt) {
@@ -74,7 +74,7 @@ fn run(app: &AppHandle, item: WheelItem) {
             Err(e) => (Status::Failed, e, true),
         },
         Action::Mark => match crate::features::mark(app) {
-            Ok(d) => (Status::Done, format!("已标记：{d}"), true),
+            Ok(d) => (Status::Done, t!("已标记：{detail}", detail = d), true),
             Err(e) => (Status::Failed, e, true),
         },
         Action::Collect => match crate::features::collect(app) {
@@ -158,7 +158,7 @@ fn open_target(app: &AppHandle, target: &str) -> Result<(), String> {
     let target = target.trim();
     if target.is_empty() {
         log::warn!("动作：打开目标为空");
-        return Err("还没有设置要打开的目标，请在菜单里填写".into());
+        return Err(t!("还没有设置要打开的目标，请在菜单里填写"));
     }
     let result = if target.contains("://") {
         app.opener().open_url(target, None::<&str>)
@@ -169,7 +169,7 @@ fn open_target(app: &AppHandle, target: &str) -> Result<(), String> {
         .map(|()| log::info!("动作：已打开 {target}"))
         .map_err(|e| {
             log::warn!("动作：打开 {target} 失败：{e}");
-            format!("打开 {target} 失败：{e}")
+            t!("打开 {target} 失败：{e}", target = target, e = e)
         })
 }
 

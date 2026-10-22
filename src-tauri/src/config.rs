@@ -65,9 +65,9 @@ impl Default for WheelConfig {
         };
         Self {
             items: vec![
-                item("mark", 0.0, "标记", "mark", Action::Mark),
-                item("collect", 90.0, "收藏", "collect", Action::Collect),
-                item("chat", 180.0, "对话", "chat", Action::Chat),
+                item("mark", 0.0, &t!("标记"), "mark", Action::Mark),
+                item("collect", 90.0, &t!("收藏"), "collect", Action::Collect),
+                item("chat", 180.0, &t!("对话"), "chat", Action::Chat),
                 item("ask", 270.0, "?", "ask", Action::Ask { prompt: String::new() }),
             ],
         }
@@ -78,28 +78,28 @@ impl WheelConfig {
     fn validate(&self) -> Result<(), String> {
         let n = self.items.len();
         if n == 0 || n > MAX_ITEMS {
-            return Err(format!("方向项数量需在 1～{MAX_ITEMS} 之间，当前 {n}"));
+            return Err(t!("方向项数量需在 1～{max} 之间，当前 {n}", max = MAX_ITEMS, n = n));
         }
         let mut ids = std::collections::HashSet::new();
         let mut slots = std::collections::HashSet::new();
         for it in &self.items {
             let slot = it.angle / ANGLE_STEP;
             if !(0.0..360.0).contains(&it.angle) || (slot - slot.round()).abs() > 1e-6 {
-                return Err(format!("「{}」的方位 {} 无效，需为 0～360 之间 22.5 的整数倍", it.label, it.angle));
+                return Err(t!("「{label}」的方位 {angle} 无效，需为 0～360 之间 22.5 的整数倍", label = it.label, angle = it.angle));
             }
             if !slots.insert(slot.round() as i64) {
-                return Err(format!("「{}」与其他项方位重复", it.label));
+                return Err(t!("「{label}」与其他项方位重复", label = it.label));
             }
             if it.label.trim().is_empty() {
-                return Err("名称不能为空".into());
+                return Err(t!("名称不能为空"));
             }
             if let Action::Plugin { plugin, action } = &it.action {
                 if plugin.is_empty() || action.is_empty() {
-                    return Err(format!("「{}」还没有选择插件动作", it.label));
+                    return Err(t!("「{label}」还没有选择插件动作", label = it.label));
                 }
             }
             if !ids.insert(it.id.as_str()) {
-                return Err(format!("重复的 id：{}", it.id));
+                return Err(t!("重复的 id：{id}", id = it.id));
             }
         }
         Ok(())

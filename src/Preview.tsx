@@ -16,7 +16,7 @@ export function demoItems(n: number): WheelItem[] {
       angle,
       label: DEMO_LABELS[i],
       icon: DEMO_ICONS[i] ?? ICONS[i % ICONS.length],
-      action: { type: "chat" },
+      action: i === 0 ? { type: "ask", prompt: "" } : { type: "chat" },
     });
   }
   return items;

@@ -93,7 +93,7 @@ pub fn open(app: &AppHandle, kind: Kind, title: &str, start: bool) -> Result<(),
     });
 
     let win = WebviewWindowBuilder::new(app, &label, WebviewUrl::App("index.html".into()))
-        .title(if title.is_empty() { "对话" } else { title })
+        .title(if title.is_empty() { t!("对话") } else { title.to_string() })
         .inner_size(W, H)
         .min_inner_size(320.0, 260.0)
         .position(x, y)
@@ -107,7 +107,7 @@ pub fn open(app: &AppHandle, kind: Kind, title: &str, start: bool) -> Result<(),
         .build()
         .map_err(|e| {
             with_sessions(|m| m.remove(&label));
-            format!("打开面板失败：{e}")
+            t!("打开面板失败：{e}", e = e)
         })?;
     let _ = win.set_focus();
     log::info!("面板：打开 {label}（{}）", kind.name());
@@ -231,7 +231,7 @@ pub struct PanelState {
 #[tauri::command]
 pub fn panel_state(window: Window) -> Result<PanelState, String> {
     with_sessions(|m| {
-        let s = m.get(window.label()).ok_or("面板已结束")?;
+        let s = m.get(window.label()).ok_or_else(|| t!("面板已结束"))?;
         Ok(PanelState {
             kind: s.kind.name(),
             title: s.title.clone(),
@@ -252,13 +252,13 @@ pub fn panel_state(window: Window) -> Result<PanelState, String> {
 pub fn panel_send(app: AppHandle, window: Window, text: String) -> Result<(), String> {
     let text = text.trim().to_string();
     if text.is_empty() {
-        return Err("内容为空".into());
+        return Err(t!("内容为空"));
     }
     let label = window.label().to_string();
     with_sessions(|m| {
-        let s = m.get_mut(&label).ok_or("面板已结束")?;
+        let s = m.get_mut(&label).ok_or_else(|| t!("面板已结束"))?;
         if s.pending.is_some() {
-            return Err("正在回答，请稍候".to_string());
+            return Err(t!("正在回答，请稍候"));
         }
         s.turns.push(Turn { role: "user".into(), content: text });
         Ok(())

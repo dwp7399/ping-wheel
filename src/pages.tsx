@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { AccountView, Collection, Mark, Me, PluginInfo, api, dateText, money, on, timeText } from "./api";
+import { AccountView, Collection, LocaleView, Mark, Me, PluginInfo, api, dateText, money, on, timeText } from "./api";
+import { t } from "./i18n";
 import Shot from "./Shot";
 
 function useFlash() {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   useEffect(() => {
     if (!msg) return;
-    const t = setTimeout(() => setMsg(null), 3000);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setMsg(null), 3000);
+    return () => clearTimeout(timer);
   }, [msg]);
   return [msg, setMsg] as const;
 }
@@ -19,9 +20,9 @@ function Flash({ msg }: { msg: { ok: boolean; text: string } | null }) {
 // ---------- 标记 ----------
 
 function markWhere(m: Mark) {
-  if (m.url) return { kind: "网页", text: m.url };
-  if (m.doc_path) return { kind: "文件", text: m.doc_path };
-  return { kind: "应用", text: m.app_name };
+  if (m.url) return { kind: t("网页"), text: m.url };
+  if (m.doc_path) return { kind: t("文件"), text: m.doc_path };
+  return { kind: t("应用"), text: m.app_name };
 }
 
 export function MarksPage() {
@@ -38,11 +39,12 @@ export function MarksPage() {
     <section>
       <div className="page-head">
         <h2>
-          标记 <span className="muted">{marks.length} 条，点「回到这里」打开当时的网页、文件或应用</span>
+          {t("标记")}{" "}
+          <span className="muted">{t("{n} 条，点「回到这里」打开当时的网页、文件或应用", { n: marks.length })}</span>
         </h2>
         <Flash msg={msg} />
       </div>
-      {marks.length === 0 && <p className="muted empty">还没有标记。用轮盘的「标记」记下当前在看的网页或文件。</p>}
+      {marks.length === 0 && <p className="muted empty">{t("还没有标记。用轮盘的「标记」记下当前在看的网页或文件。")}</p>}
       <div className="cards">
         {marks.map((m) => {
           const where = markWhere(m);
@@ -62,7 +64,7 @@ export function MarksPage() {
                 <input
                   className="card-note"
                   defaultValue={m.note}
-                  placeholder="备注…"
+                  placeholder={t("备注…")}
                   onBlur={(e) => e.target.value !== m.note && api.markNote(m.id, e.target.value)}
                 />
                 <div className="card-actions">
@@ -74,13 +76,13 @@ export function MarksPage() {
                     onClick={() =>
                       api
                         .markRestore(m.id)
-                        .then((t) => setMsg({ ok: true, text: t }))
+                        .then((text) => setMsg({ ok: true, text }))
                         .catch((e) => setMsg({ ok: false, text: String(e) }))
                     }
                   >
-                    回到这里
+                    {t("回到这里")}
                   </button>
-                  <button title="删除" onClick={() => api.markDelete(m.id).then(reload)}>
+                  <button title={t("删除")} onClick={() => api.markDelete(m.id).then(reload)}>
                     ✕
                   </button>
                 </div>
@@ -96,10 +98,10 @@ export function MarksPage() {
 // ---------- 收藏 ----------
 
 const STATUS: Record<Collection["status"], string> = {
-  pending: "等待归类",
-  classifying: "归类中…",
+  pending: t("等待归类"),
+  classifying: t("归类中…"),
   done: "",
-  failed: "归类失败",
+  failed: t("归类失败"),
 };
 
 function sourceLabel(c: Collection) {
@@ -120,6 +122,7 @@ export function CollectionsPage() {
   const [filter, setFilter] = useState<string | null>(null);
   const [msg, setMsg] = useFlash();
   const reload = () => api.collections().then(setItems);
+  const uncategorized = t("未归类");
 
   useEffect(() => {
     reload();
@@ -130,7 +133,7 @@ export function CollectionsPage() {
   const groups = useMemo(() => {
     const byCat = new Map<string, Map<string, Collection[]>>();
     for (const c of items) {
-      const cat = c.category || "未归类";
+      const cat = c.category || uncategorized;
       if (filter && cat !== filter) continue;
       const bySrc = byCat.get(cat) ?? new Map<string, Collection[]>();
       bySrc.set(c.source_key, [...(bySrc.get(c.source_key) ?? []), c]);
@@ -141,7 +144,7 @@ export function CollectionsPage() {
 
   const cats = useMemo(() => {
     const m = new Map<string, number>();
-    items.forEach((c) => m.set(c.category || "未归类", (m.get(c.category || "未归类") ?? 0) + 1));
+    items.forEach((c) => m.set(c.category || uncategorized, (m.get(c.category || uncategorized) ?? 0) + 1));
     return [...m.entries()].sort((a, b) => b[1] - a[1]);
   }, [items]);
 
@@ -149,14 +152,14 @@ export function CollectionsPage() {
     <section>
       <div className="page-head">
         <h2>
-          收藏 <span className="muted">{items.length} 条，AI 自动归类，同一来源放在一起</span>
+          {t("收藏")} <span className="muted">{t("{n} 条，AI 自动归类，同一来源放在一起", { n: items.length })}</span>
         </h2>
         <Flash msg={msg} />
       </div>
       {cats.length > 0 && (
         <div className="chips-row">
           <button className={filter === null ? "on" : ""} onClick={() => setFilter(null)}>
-            全部
+            {t("全部")}
           </button>
           {cats.map(([c, n]) => (
             <button key={c} className={filter === c ? "on" : ""} onClick={() => setFilter(c)}>
@@ -165,7 +168,7 @@ export function CollectionsPage() {
           ))}
         </div>
       )}
-      {items.length === 0 && <p className="muted empty">还没有收藏。用轮盘的「收藏」截图收藏当前内容。</p>}
+      {items.length === 0 && <p className="muted empty">{t("还没有收藏。用轮盘的「收藏」截图收藏当前内容。")}</p>}
       {groups.map(([cat, sources]) => (
         <div key={cat} className="coll-cat">
           <h3>{cat}</h3>
@@ -175,13 +178,13 @@ export function CollectionsPage() {
                 <span className="ellipsis" title={list[0].url ?? list[0].doc_path ?? key}>
                   {sourceLabel(list[0])}
                 </span>
-                {list.length > 1 && <span className="pill">{list.length} 张</span>}
+                {list.length > 1 && <span className="pill">{t("{n} 张", { n: list.length })}</span>}
                 <button
                   onClick={() =>
                     api.collectionOpenSource(list[0].id).catch((e) => setMsg({ ok: false, text: String(e) }))
                   }
                 >
-                  打开来源
+                  {t("打开来源")}
                 </button>
               </div>
               <div className="cards">
@@ -194,19 +197,17 @@ export function CollectionsPage() {
                       {c.summary && <div className="card-summary">{c.summary}</div>}
                       {c.tags.length > 0 && (
                         <div className="card-tags">
-                          {c.tags.map((t) => (
-                            <span key={t} className="pill">
-                              {t}
+                          {c.tags.map((tag) => (
+                            <span key={tag} className="pill">
+                              {tag}
                             </span>
                           ))}
                         </div>
                       )}
                       <div className="card-actions">
                         <span className="muted">{timeText(c.created_at)}</span>
-                        <button title="重新归类" onClick={() => api.collectionReclassify(c.id)}>
-                          重新归类
-                        </button>
-                        <button title="删除" onClick={() => api.collectionDelete(c.id).then(reload)}>
+                        <button onClick={() => api.collectionReclassify(c.id)}>{t("重新归类")}</button>
+                        <button title={t("删除")} onClick={() => api.collectionDelete(c.id).then(reload)}>
                           ✕
                         </button>
                       </div>
@@ -222,14 +223,118 @@ export function CollectionsPage() {
   );
 }
 
-// ---------- 账号 ----------
+// ---------- 账号与语言 ----------
+
+function LanguagePicker() {
+  const [locale, setLocale] = useState<LocaleView | null>(null);
+  useEffect(() => {
+    api.locale().then(setLocale);
+  }, []);
+  if (!locale) return null;
+  const autoName = locale.langs.find(([c]) => c === locale.effective)?.[1] ?? locale.effective;
+  return (
+    <label>
+      <span>{t("语言")}</span>
+      <select value={locale.setting} onChange={(e) => api.setLocale(e.target.value).then(setLocale)}>
+        <option value="auto">
+          {t("自动（按时区 {tz}）", { tz: locale.timezone || "?" })}
+          {locale.setting === "auto" ? ` · ${autoName}` : ""}
+        </option>
+        {locale.langs.map(([code, name]) => (
+          <option key={code} value={code}>
+            {name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function EmailLogin({ onDone }: { onDone: (m: Me) => void }) {
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [sent, setSent] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useFlash();
+
+  const start = async () => {
+    setBusy(true);
+    try {
+      await api.loginStart(email);
+      setSent(true);
+      setMsg({ ok: true, text: t("验证码已发送到 {email}", { email }) });
+    } catch (e) {
+      setMsg({ ok: false, text: String(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+  const verify = async () => {
+    setBusy(true);
+    try {
+      onDone(await api.loginVerify(email, code));
+    } catch (e) {
+      setMsg({ ok: false, text: String(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="form">
+      <label>
+        <span>{t("邮箱")}</span>
+        <input
+          type="email"
+          value={email}
+          autoFocus
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="you@example.com"
+          onKeyDown={(e) => e.key === "Enter" && !sent && start()}
+        />
+      </label>
+      {sent && (
+        <label>
+          <span>{t("验证码")}</span>
+          <input
+            value={code}
+            inputMode="numeric"
+            maxLength={6}
+            autoFocus
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+            placeholder={t("6 位数字")}
+            onKeyDown={(e) => e.key === "Enter" && code.length === 6 && verify()}
+          />
+        </label>
+      )}
+      <div className="form-actions">
+        {sent ? (
+          <>
+            <button className="primary" disabled={busy || code.length !== 6} onClick={verify}>
+              {t("登录")}
+            </button>
+            <button disabled={busy} onClick={start}>
+              {t("重新发送")}
+            </button>
+          </>
+        ) : (
+          <button className="primary" disabled={busy || !email.includes("@")} onClick={start}>
+            {t("发送验证码")}
+          </button>
+        )}
+        <Flash msg={msg} />
+      </div>
+      <p className="muted">{t("没有账号会自动注册。")}</p>
+    </div>
+  );
+}
 
 export function AccountPage() {
   const [view, setView] = useState<AccountView | null>(null);
-  const [server, setServer] = useState("");
-  const [token, setToken] = useState("");
   const [me, setMe] = useState<Me | null>(null);
   const [meErr, setMeErr] = useState("");
+  const [advanced, setAdvanced] = useState(false);
+  const [server, setServer] = useState("");
   const [msg, setMsg] = useFlash();
 
   const refresh = () =>
@@ -252,88 +357,108 @@ export function AccountPage() {
     });
   }, []);
 
-  const save = async () => {
+  const saveServer = async () => {
     try {
-      const v = await api.setAccount(server, token.trim() ? token.trim() : null);
-      setView(v);
-      setToken("");
-      setMsg({ ok: true, text: "已保存" });
-      refresh();
+      setView(await api.setAccount(server, null));
+      setMsg({ ok: true, text: t("已保存") });
     } catch (e) {
       setMsg({ ok: false, text: String(e) });
     }
   };
 
+  const logout = async () => {
+    await api.logout();
+    setMe(null);
+    setView(await api.account());
+  };
+
   if (!view) return null;
   const e = me?.entitlements;
+  const loggedIn = view.has_token && !!me;
   return (
     <section>
       <div className="page-head">
         <h2>
-          账号 <span className="muted">模型能力和高级功能由 Ping Wheel 服务提供</span>
+          {t("账号")} <span className="muted">{t("模型能力和高级功能由 Ping Wheel 服务提供")}</span>
         </h2>
         <Flash msg={msg} />
       </div>
 
-      {me && e && (
-        <div className="plan-cards">
-          <div className={`plan-card ${e.model.active ? "on" : ""}`}>
-            <div className="plan-name">模型能力</div>
-            {e.model.active ? (
-              <>
-                <div className="plan-status">{e.model.plan}，{dateText(e.model.ends_at)} 到期</div>
-                <div className="quota">
-                  <i style={{ width: `${Math.min(100, (e.model.used / Math.max(e.model.quota, 0.0001)) * 100)}%` }} />
-                </div>
-                <div className="muted">
-                  本周期已用 {money(e.model.used, e.currency)} / {money(e.model.quota, e.currency)}，
-                  {dateText(e.model.cycle_end)} 重置
-                </div>
-              </>
-            ) : (
-              <div className="muted">未订阅。问号、对话、收藏归类和插件的模型调用都需要模型订阅（¥4.9 / ¥9.9 / ¥19.9 每月）。</div>
-            )}
+      {loggedIn && e && (
+        <>
+          <div className="account-line">
+            <span>{t("已登录：{name}", { name: me.user.email || me.user.name })}</span>
+            <button onClick={refresh}>{t("刷新订阅")}</button>
+            <button onClick={logout}>{t("退出登录")}</button>
           </div>
-          <div className={`plan-card ${e.pro.active ? "on" : ""}`}>
-            <div className="plan-name">高级功能</div>
-            {e.pro.active ? (
-              <div className="plan-status">已解锁自定义插件，{dateText(e.pro.ends_at)} 到期</div>
-            ) : (
-              <div className="muted">未订阅。解锁自定义插件（¥0.99 每月）。</div>
-            )}
+          <div className="plan-cards">
+            <div className={`plan-card ${e.model.active ? "on" : ""}`}>
+              <div className="plan-name">{t("模型能力")}</div>
+              {e.model.active ? (
+                <>
+                  <div className="plan-status">
+                    {t("{plan}，{date} 到期", { plan: e.model.plan ?? "", date: dateText(e.model.ends_at) })}
+                  </div>
+                  <div className="quota">
+                    <i style={{ width: `${Math.min(100, (e.model.used / Math.max(e.model.quota, 0.0001)) * 100)}%` }} />
+                  </div>
+                  <div className="muted">
+                    {t("本周期已用 {used} / {quota}，{date} 重置", {
+                      used: money(e.model.used, e.currency),
+                      quota: money(e.model.quota, e.currency),
+                      date: dateText(e.model.cycle_end),
+                    })}
+                  </div>
+                </>
+              ) : (
+                <div className="muted">
+                  {t("未订阅。?、对话、收藏归类和插件的模型调用都需要模型订阅（¥4.9 / ¥9.9 / ¥19.9，每 31 天）。")}
+                </div>
+              )}
+            </div>
+            <div className={`plan-card ${e.pro.active ? "on" : ""}`}>
+              <div className="plan-name">{t("高级功能")}</div>
+              {e.pro.active ? (
+                <div className="plan-status">{t("已解锁自定义插件，{date} 到期", { date: dateText(e.pro.ends_at) })}</div>
+              ) : (
+                <div className="muted">{t("未订阅。解锁自定义插件（¥0.99，每 31 天）。")}</div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+      {view.has_token && meErr && <p className="err">{meErr}</p>}
+      {!loggedIn && (
+        <EmailLogin
+          onDone={async (m) => {
+            setMe(m);
+            setMeErr("");
+            setView(await api.account());
+          }}
+        />
+      )}
+
+      <h3 className="section-title">{t("偏好")}</h3>
+      <div className="form">
+        <LanguagePicker />
+      </div>
+
+      <h3 className="section-title">
+        <button className="link" onClick={() => setAdvanced((v) => !v)}>
+          {advanced ? "▾" : "▸"} {t("高级")}
+        </button>
+      </h3>
+      {advanced && (
+        <div className="form">
+          <label>
+            <span>{t("服务地址")}</span>
+            <input value={server} onChange={(e) => setServer(e.target.value)} placeholder="https://…" />
+          </label>
+          <div className="form-actions">
+            <button onClick={saveServer}>{t("保存")}</button>
           </div>
         </div>
       )}
-      {meErr && <p className="err">{meErr}</p>}
-
-      <div className="form">
-        {me && (
-          <p className="muted" style={{ paddingLeft: 0 }}>
-            已登录：{me.user.name} {me.user.email && `（${me.user.email}）`}
-          </p>
-        )}
-        <label>
-          <span>服务地址</span>
-          <input value={server} onChange={(e) => setServer(e.target.value)} placeholder="https://…" />
-        </label>
-        <label>
-          <span>账号令牌</span>
-          <input
-            type="password"
-            value={token}
-            onChange={(e) => setToken(e.target.value)}
-            placeholder={view.has_token ? `已填写（${view.token_hint}），留空不修改` : "pw_…"}
-          />
-        </label>
-        <div className="form-actions">
-          <button className="primary" onClick={save}>
-            保存
-          </button>
-          <button onClick={refresh} disabled={!view.has_token}>
-            刷新订阅
-          </button>
-        </div>
-      </div>
     </section>
   );
 }
@@ -357,11 +482,14 @@ export function PluginsPage() {
 
   const install = async () => {
     const { open } = await import("@tauri-apps/plugin-dialog");
-    const path = await open({ multiple: false, filters: [{ name: "插件包", extensions: ["zip"] }] });
+    const path = await open({ multiple: false, filters: [{ name: t("插件包"), extensions: ["zip"] }] });
     if (!path) return;
     try {
       const m = await api.pluginInstall(path as string);
-      setMsg({ ok: true, text: `已安装「${m.name}」${m.version}，可在「轮盘」里把它的动作放到某个方向上` });
+      setMsg({
+        ok: true,
+        text: t("已安装「{name}」{version}，可在「轮盘」里把它的动作放到某个方向上", { name: m.name, version: m.version }),
+      });
     } catch (e) {
       setMsg({ ok: false, text: String(e) });
     }
@@ -371,17 +499,17 @@ export function PluginsPage() {
     <section>
       <div className="page-head">
         <h2>
-          插件 <span className="muted">以 zip 包安装，装好后在「轮盘」里放到某个方向上</span>
+          {t("插件")} <span className="muted">{t("以 zip 包安装，装好后在「轮盘」里放到某个方向上")}</span>
         </h2>
         <div className="row-gap">
           <Flash msg={msg} />
           <button className="primary" onClick={install} disabled={pro === false}>
-            从 zip 安装…
+            {t("从 zip 安装…")}
           </button>
         </div>
       </div>
-      {pro === false && <p className="notice">自定义插件需要订阅「高级功能」（¥0.99 每月），请到「账号」页查看。</p>}
-      {plugins.length === 0 && <p className="muted empty">还没有安装插件。</p>}
+      {pro === false && <p className="notice">{t("自定义插件需要订阅「高级功能」（¥0.99，每 31 天），请到「账号」页查看。")}</p>}
+      {plugins.length === 0 && <p className="muted empty">{t("还没有安装插件。")}</p>}
       <div className="plugin-list">
         {plugins.map((p) => (
           <div key={p.manifest.id} className="plugin-card">
@@ -394,16 +522,16 @@ export function PluginsPage() {
               <button
                 className="danger"
                 onClick={() => {
-                  if (confirm(`卸载「${p.manifest.name}」？它在轮盘上的动作也会一并移除。`))
+                  if (confirm(t("卸载「{name}」？它在轮盘上的动作也会一并移除。", { name: p.manifest.name })))
                     api.pluginUninstall(p.manifest.id).catch((e) => setMsg({ ok: false, text: String(e) }));
                 }}
               >
-                卸载
+                {t("卸载")}
               </button>
             </div>
             {p.manifest.description && <div className="plugin-desc">{p.manifest.description}</div>}
             <div className="plugin-meta">
-              <span className="muted">动作：</span>
+              <span className="muted">{t("动作：")}</span>
               {p.manifest.actions.map((a) => (
                 <span key={a.id} className="pill">
                   {a.label}
@@ -412,8 +540,8 @@ export function PluginsPage() {
             </div>
             {p.permission_labels.length > 0 && (
               <div className="plugin-meta">
-                <span className="muted">权限：</span>
-                {p.permission_labels.join("；")}
+                <span className="muted">{t("权限：")}</span>
+                {p.permission_labels.join(t("；"))}
               </div>
             )}
           </div>

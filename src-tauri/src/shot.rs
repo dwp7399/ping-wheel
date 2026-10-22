@@ -67,16 +67,16 @@ pub fn capture_display_at(dir: &Path, x: f64, y: f64) -> Result<Capture, String>
         .args(["-x", "-t", "png", "-R", &rect])
         .arg(&path)
         .status()
-        .map_err(|e| format!("调用 screencapture 失败：{e}"))?;
+        .map_err(|e| t!("调用 screencapture 失败：{e}", e = e))?;
     if !status.success() || !path.exists() {
-        return Err("截图失败，请确认已在「系统设置 → 隐私与安全性 → 屏幕录制」里允许 Ping Wheel".into());
+        return Err(t!("截图失败，请确认已在「系统设置 → 隐私与安全性 → 屏幕录制」里允许 Ping Wheel"));
     }
     Ok(Capture { path, origin: (bx, by), size: (bw, bh) })
 }
 
 #[cfg(not(target_os = "macos"))]
 pub fn capture_display_at(_dir: &Path, _x: f64, _y: f64) -> Result<Capture, String> {
-    Err("当前平台暂不支持截图".into())
+    Err(t!("当前平台暂不支持截图"))
 }
 
 fn jpeg_data_url(img: &DynamicImage, max_edge: u32) -> Result<String, String> {
@@ -84,13 +84,13 @@ fn jpeg_data_url(img: &DynamicImage, max_edge: u32) -> Result<String, String> {
     let img = if w.max(h) > max_edge { img.resize(max_edge, max_edge, FilterType::Triangle) } else { img.clone() };
     let mut buf = Cursor::new(Vec::new());
     let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut buf, 82);
-    img.to_rgb8().write_with_encoder(encoder).map_err(|e| format!("编码截图失败：{e}"))?;
+    img.to_rgb8().write_with_encoder(encoder).map_err(|e| t!("编码截图失败：{e}", e = e))?;
     Ok(format!("data:image/jpeg;base64,{}", base64::engine::general_purpose::STANDARD.encode(buf.into_inner())))
 }
 
 /// 读取截图并压成长边不超过 max_edge 的 JPEG data URL（收藏归类等用）。
 pub fn data_url(path: &Path, max_edge: u32) -> Result<String, String> {
-    let img = image::open(path).map_err(|e| format!("读取截图失败：{e}"))?;
+    let img = image::open(path).map_err(|e| t!("读取截图失败：{e}", e = e))?;
     jpeg_data_url(&img, max_edge)
 }
 
@@ -126,8 +126,9 @@ pub struct MarkedImages {
 }
 
 pub fn marked_images(cap: &Capture, anchor: (f64, f64)) -> Result<MarkedImages, String> {
-    let img = image::open(&cap.path).map_err(|e| format!("读取截图失败：{e}"))?;
-    let mut rgba = img.to_rgba8();
+    let img = image::open(&cap.path).map_err(|e| t!("读取截图失败：{e}", e = e))?;
+    let original = img.to_rgba8();
+    let mut rgba = original.clone();
     let (w, h) = rgba.dimensions();
     let scale = w as f64 / cap.size.0.max(1.0);
     let fx = ((anchor.0 - cap.origin.0) / cap.size.0).clamp(0.0, 1.0);
@@ -136,14 +137,23 @@ pub fn marked_images(cap: &Capture, anchor: (f64, f64)) -> Result<MarkedImages, 
     draw_marker(&mut rgba, cx, cy, scale);
     let marked = DynamicImage::ImageRgba8(rgba);
 
-    // 放大图：标记周围 960×600 点的区域（超出屏幕时向内平移）
-    let cw = ((960.0 * scale) as u32).min(w);
-    let ch = ((600.0 * scale) as u32).min(h);
-    let left = (cx - cw as f64 / 2.0).clamp(0.0, (w - cw) as f64) as u32;
-    let top = (cy - ch as f64 / 2.0).clamp(0.0, (h - ch) as f64) as u32;
-    let crop = marked.crop_imm(left, top, cw, ch);
+    // 放大图：从没画圈的原图里裁，内容不被遮挡；标记点始终在正中，超出屏幕的部分用灰色补齐
+    let crop = centered_crop(&original, cx, cy, (960.0 * scale) as u32, (600.0 * scale) as u32);
 
-    Ok(MarkedImages { full: jpeg_data_url(&marked, 1600)?, crop: jpeg_data_url(&crop, 1400)?, marker: (fx, fy) })
+    Ok(MarkedImages {
+        full: jpeg_data_url(&marked, 1600)?,
+        crop: jpeg_data_url(&DynamicImage::ImageRgba8(crop), 1400)?,
+        marker: (fx, fy),
+    })
+}
+
+/// 以 (cx, cy) 为正中心裁出 cw×ch，超出原图的部分填灰色。
+fn centered_crop(src: &RgbaImage, cx: f64, cy: f64, cw: u32, ch: u32) -> RgbaImage {
+    let mut out = RgbaImage::from_pixel(cw, ch, Rgba([128, 128, 128, 255]));
+    let left = cx.round() as i64 - cw as i64 / 2;
+    let top = cy.round() as i64 - ch as i64 / 2;
+    image::imageops::replace(&mut out, src, -left, -top);
+    out
 }
 
 #[cfg(test)]
@@ -165,5 +175,15 @@ mod tests {
         let m = marked_images(&cap, (100.0, 0.0)).unwrap();
         assert_eq!(m.marker, (0.0, 0.0));
         let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn crop_keeps_marker_centered() {
+        let mut src = RgbaImage::from_pixel(100, 60, Rgba([0, 0, 0, 255]));
+        src.put_pixel(5, 5, Rgba([255, 0, 0, 255]));
+        // 标记在左上角附近：裁出的图正中仍是标记点，左上补灰
+        let c = centered_crop(&src, 5.0, 5.0, 40, 20);
+        assert_eq!(c.get_pixel(20, 10), &Rgba([255, 0, 0, 255]));
+        assert_eq!(c.get_pixel(0, 0), &Rgba([128, 128, 128, 255]));
     }
 }

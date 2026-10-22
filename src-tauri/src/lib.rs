@@ -1,3 +1,5 @@
+#[macro_use]
+mod i18n;
 mod actions;
 mod cloud;
 mod config;
@@ -58,6 +60,11 @@ pub fn run() {
             wheel::wheel_click,
             settings::account_get,
             settings::account_set,
+            settings::account_logout,
+            settings::locale_get,
+            settings::locale_set,
+            cloud::login_email_start,
+            cloud::login_email_verify,
             cloud::account_me,
             features::image_data_url,
             features::chat_open,
@@ -91,7 +98,10 @@ pub fn run() {
         .setup(|app| {
             let cfg = config::load(app.handle());
             *app.state::<config::ConfigState>().0.lock().unwrap() = cfg;
-            app.manage(settings::SettingsState(std::sync::Mutex::new(settings::load(app.handle()))));
+            let s = settings::load(app.handle());
+            let lang = i18n::apply(&s.language);
+            log::info!("启动：语言 {lang}（设置 {}，时区 {}）", s.language, i18n::detect_timezone().unwrap_or_default());
+            app.manage(settings::SettingsState(std::sync::Mutex::new(s)));
             app.manage(store::open(app.handle())?);
 
             // 拉取账号信息（订阅状态），之后每 30 分钟刷新一次
@@ -125,8 +135,8 @@ pub fn run() {
                 log::error!("启动：注册 ⌘⇧C 失败，可能被其他应用占用：{e}");
             }
 
-            let open_item = MenuItem::with_id(app, "open", "打开菜单", true, None::<&str>)?;
-            let quit_item = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
+            let open_item = MenuItem::with_id(app, "open", t!("打开菜单"), true, None::<&str>)?;
+            let quit_item = MenuItem::with_id(app, "quit", t!("退出"), true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&open_item, &quit_item])?;
             let mut tray = TrayIconBuilder::new()
                 .tooltip("Ping Wheel（⌘⇧C）")

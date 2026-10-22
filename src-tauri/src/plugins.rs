@@ -22,6 +22,7 @@ use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, Windo
 
 use crate::scene::Scene;
 
+/// 权限及说明（说明在展示时翻译）
 pub const PERMISSIONS: &[(&str, &str)] = &[
     ("scene", "读取当前应用、窗口、链接和标记处的文字"),
     ("screenshot", "截取当前屏幕"),
@@ -72,27 +73,27 @@ impl Manifest {
             && self.id.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '.' || c == '-')
             && self.id.chars().next().is_some_and(|c| c.is_ascii_alphanumeric());
         if !id_ok {
-            return Err(format!("插件 id「{}」无效：只能用小写字母、数字、点和横线", self.id));
+            return Err(t!("插件 id「{id}」无效：只能用小写字母、数字、点和横线", id = self.id));
         }
         if self.name.trim().is_empty() {
-            return Err("插件名称不能为空".into());
+            return Err(t!("插件名称不能为空"));
         }
         if self.actions.is_empty() {
-            return Err("插件至少要有一个动作".into());
+            return Err(t!("插件至少要有一个动作"));
         }
         let mut seen = std::collections::HashSet::new();
         for a in &self.actions {
             if a.id.trim().is_empty() || !seen.insert(a.id.as_str()) {
-                return Err(format!("动作 id「{}」为空或重复", a.id));
+                return Err(t!("动作 id「{id}」为空或重复", id = a.id));
             }
         }
         for p in &self.permissions {
             if !PERMISSIONS.iter().any(|(k, _)| k == p) {
-                return Err(format!("未知权限「{p}」"));
+                return Err(t!("未知权限「{perm}」", perm = p));
             }
         }
         if self.main.contains("..") || self.main.starts_with('/') {
-            return Err("main 路径无效".into());
+            return Err(t!("main 路径无效"));
         }
         Ok(())
     }
@@ -115,8 +116,8 @@ fn data_file(app: &AppHandle, id: &str) -> PathBuf {
 }
 
 fn read_manifest(dir: &Path) -> Result<Manifest, String> {
-    let text = fs::read_to_string(dir.join("manifest.json")).map_err(|_| "缺少 manifest.json".to_string())?;
-    let m: Manifest = serde_json::from_str(&text).map_err(|e| format!("manifest.json 格式错误：{e}"))?;
+    let text = fs::read_to_string(dir.join("manifest.json")).map_err(|_| t!("缺少 manifest.json"))?;
+    let m: Manifest = serde_json::from_str(&text).map_err(|e| t!("manifest.json 格式错误：{e}", e = e))?;
     m.validate()?;
     Ok(m)
 }
@@ -141,7 +142,7 @@ pub fn plugins_list(app: AppHandle) -> Vec<PluginInfo> {
                     let permission_labels = m
                         .permissions
                         .iter()
-                        .filter_map(|p| PERMISSIONS.iter().find(|(k, _)| k == p).map(|(_, l)| l.to_string()))
+                        .filter_map(|p| PERMISSIONS.iter().find(|(k, _)| k == p).map(|(_, l)| crate::i18n::tr(l, &[])))
                         .collect();
                     out.push(PluginInfo { manifest: m, permission_labels });
                 }
@@ -157,7 +158,7 @@ fn require_pro(app: &AppHandle) -> Result<(), String> {
     if crate::cloud::pro_active(app) {
         Ok(())
     } else {
-        Err("自定义插件需要订阅「高级功能」".into())
+        Err(t!("自定义插件需要订阅「高级功能」"))
     }
 }
 
@@ -169,12 +170,12 @@ pub async fn plugin_install(app: AppHandle, path: String) -> Result<Manifest, St
     }
     require_pro(&app)?;
     let path = PathBuf::from(path);
-    let size = fs::metadata(&path).map_err(|e| format!("读取插件包失败：{e}"))?.len();
+    let size = fs::metadata(&path).map_err(|e| t!("读取插件包失败：{e}", e = e))?.len();
     if size > MAX_ZIP {
-        return Err("插件包超过 5MB".into());
+        return Err(t!("插件包超过 5MB"));
     }
-    let file = fs::File::open(&path).map_err(|e| format!("打开插件包失败：{e}"))?;
-    let mut zip = zip::ZipArchive::new(file).map_err(|e| format!("不是有效的 zip：{e}"))?;
+    let file = fs::File::open(&path).map_err(|e| t!("打开插件包失败：{e}", e = e))?;
+    let mut zip = zip::ZipArchive::new(file).map_err(|e| t!("不是有效的 zip：{e}", e = e))?;
 
     // 允许 zip 里多包一层目录
     let prefix = {
@@ -186,7 +187,7 @@ pub async fn plugin_install(app: AppHandle, path: String) -> Result<Manifest, St
                 .iter()
                 .find(|n| n.ends_with("/manifest.json") && n.matches('/').count() == 1)
                 .map(|n| n.trim_end_matches("manifest.json").to_string())
-                .ok_or("zip 里没有 manifest.json")?
+                .ok_or_else(|| t!("zip 里没有 manifest.json"))?
         }
     };
 
@@ -211,7 +212,7 @@ pub async fn plugin_install(app: AppHandle, path: String) -> Result<Manifest, St
         }
         let m = read_manifest(&staging)?;
         if !staging.join(&m.main).is_file() {
-            return Err(format!("缺少入口文件 {}", m.main));
+            return Err(t!("缺少入口文件 {main}", main = m.main));
         }
         Ok(m)
     })();
@@ -226,7 +227,7 @@ pub async fn plugin_install(app: AppHandle, path: String) -> Result<Manifest, St
     };
     let dest = plugins_dir(&app).join(&m.id);
     let _ = fs::remove_dir_all(&dest);
-    fs::rename(&staging, &dest).map_err(|e| format!("安装失败：{e}"))?;
+    fs::rename(&staging, &dest).map_err(|e| t!("安装失败：{e}", e = e))?;
     log::info!("插件：已安装 {} {}（{}）", m.name, m.version, m.id);
     let _ = app.emit("plugins:changed", &m.id);
     Ok(m)
@@ -237,9 +238,9 @@ pub async fn plugin_install(app: AppHandle, path: String) -> Result<Manifest, St
 pub fn plugin_uninstall(app: AppHandle, id: String) -> Result<(), String> {
     let dir = plugins_dir(&app).join(&id);
     if !dir.starts_with(plugins_dir(&app)) || id.contains('/') || id.contains("..") {
-        return Err("插件 id 无效".into());
+        return Err(t!("插件 id 无效"));
     }
-    fs::remove_dir_all(&dir).map_err(|e| format!("卸载失败：{e}"))?;
+    fs::remove_dir_all(&dir).map_err(|e| t!("卸载失败：{e}", e = e))?;
     let _ = fs::remove_file(data_file(&app, &id));
     crate::config::remove_plugin_items(&app, &id);
     log::info!("插件：已卸载 {id}");
@@ -266,12 +267,12 @@ fn with_runs<T>(f: impl FnOnce(&mut HashMap<String, Run>) -> T) -> T {
 /// 轮盘选中插件动作时调用。
 pub fn run(app: &AppHandle, plugin_id: &str, action_id: &str) -> Result<String, String> {
     require_pro(app)?;
-    let manifest = get(app, plugin_id).ok_or_else(|| format!("插件 {plugin_id} 未安装"))?;
+    let manifest = get(app, plugin_id).ok_or_else(|| t!("插件 {id} 未安装", id = plugin_id))?;
     let action = manifest
         .actions
         .iter()
         .find(|a| a.id == action_id)
-        .ok_or_else(|| format!("插件没有动作 {action_id}"))?
+        .ok_or_else(|| t!("插件没有动作 {action}", action = action_id))?
         .label
         .clone();
     let scene = crate::scene::take();
@@ -285,7 +286,7 @@ pub fn run(app: &AppHandle, plugin_id: &str, action_id: &str) -> Result<String, 
         .build();
     if let Err(e) = built {
         with_runs(|m| m.remove(&label));
-        return Err(format!("启动插件失败：{e}"));
+        return Err(t!("启动插件失败：{e}", e = e));
     }
     log::info!("插件：运行 {}（{}）的「{action}」，窗口 {label}", manifest.name, manifest.id);
 
@@ -300,12 +301,12 @@ pub fn run(app: &AppHandle, plugin_id: &str, action_id: &str) -> Result<String, 
             }
         }
     });
-    Ok(format!("正在运行「{}」", action))
+    Ok(t!("正在运行「{action}」", action = action))
 }
 
 /// 取当前窗口对应的运行（并校验调用者确实是插件窗口）。
 fn run_of<T>(window: &Window, f: impl FnOnce(&Run) -> T) -> Result<T, String> {
-    with_runs(|m| m.get(window.label()).map(f).ok_or_else(|| "插件运行已结束".to_string()))
+    with_runs(|m| m.get(window.label()).map(f).ok_or_else(|| t!("插件运行已结束")))
 }
 
 fn need(window: &Window, perm: &str) -> Result<Manifest, String> {
@@ -313,7 +314,7 @@ fn need(window: &Window, perm: &str) -> Result<Manifest, String> {
     if m.has(perm) {
         Ok(m)
     } else {
-        Err(format!("插件没有声明「{perm}」权限"))
+        Err(t!("插件没有声明「{perm}」权限", perm = perm))
     }
 }
 
@@ -321,7 +322,7 @@ fn need(window: &Window, perm: &str) -> Result<Manifest, String> {
 #[tauri::command]
 pub fn plugin_source(app: AppHandle, window: Window) -> Result<String, String> {
     let m = run_of(&window, |r| r.manifest.clone())?;
-    fs::read_to_string(plugins_dir(&app).join(&m.id).join(&m.main)).map_err(|e| format!("读取插件代码失败：{e}"))
+    fs::read_to_string(plugins_dir(&app).join(&m.id).join(&m.main)).map_err(|e| t!("读取插件代码失败：{e}", e = e))
 }
 
 /// 运行上下文：动作、插件信息；有 scene 权限时附带当前场景。
@@ -355,7 +356,7 @@ pub fn plugin_screenshot(app: AppHandle, window: Window) -> Result<String, Strin
     need(&window, "screenshot")?;
     let anchor = run_of(&window, |r| r.scene.anchor)?;
     if !crate::shot::ensure_screen_access() {
-        return Err("需要屏幕录制权限".into());
+        return Err(t!("需要屏幕录制权限"));
     }
     let cap = crate::shot::capture_display_at(&crate::store::captures_dir(&app), anchor.0, anchor.1)?;
     let images = crate::shot::marked_images(&cap, anchor);
@@ -389,7 +390,7 @@ pub fn plugin_show(app: AppHandle, window: Window, title: String, markdown: Stri
 pub fn plugin_clipboard(app: AppHandle, window: Window, text: String) -> Result<(), String> {
     use tauri_plugin_clipboard_manager::ClipboardExt;
     need(&window, "clipboard")?;
-    app.clipboard().write_text(text).map_err(|e| format!("写入剪贴板失败：{e}"))
+    app.clipboard().write_text(text).map_err(|e| t!("写入剪贴板失败：{e}", e = e))
 }
 
 #[tauri::command]
@@ -397,7 +398,7 @@ pub fn plugin_open(app: AppHandle, window: Window, url: String) -> Result<(), St
     use tauri_plugin_opener::OpenerExt;
     need(&window, "open")?;
     if !(url.starts_with("https://") || url.starts_with("http://")) {
-        return Err("只能打开 http(s) 链接".into());
+        return Err(t!("只能打开 http(s) 链接"));
     }
     app.opener().open_url(url, None::<&str>).map_err(|e| e.to_string())
 }
@@ -418,7 +419,7 @@ pub fn plugin_storage_set(app: AppHandle, window: Window, key: String, value: Va
     data[key] = value;
     let text = serde_json::to_string(&data).map_err(|e| e.to_string())?;
     if text.len() > 1024 * 1024 {
-        return Err("插件存储超过 1MB".into());
+        return Err(t!("插件存储超过 1MB"));
     }
     fs::write(path, text).map_err(|e| e.to_string())
 }

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
+import { t } from "./i18n";
 import { Icon } from "./icons";
 import { DEAD_ZONE, Selection, WheelItem, actionHint, sectorOf } from "./types";
 
@@ -78,9 +79,9 @@ export default function Wheel({ source, items }: { source: WheelSource; items: W
     const setHint = () => {
       const el = hintRef.current;
       if (!el) return;
-      const action = current === null ? "打开菜单和设置" : hints[current] ?? "";
+      const action = current === null ? t("打开菜单和设置") : hints[current] ?? "";
       el.querySelector("b")!.textContent = action;
-      el.querySelector("span")!.textContent = "点击执行 · 右键或 Esc 取消";
+      el.querySelector("span")!.textContent = t("点击执行 · 右键或 Esc 取消");
     };
 
     const select = (sel: Selection) => {
@@ -173,8 +174,15 @@ export default function Wheel({ source, items }: { source: WheelSource; items: W
               ["--ny" as string]: ny,
             }}
           >
-            <Icon name={it.icon} size={L.icon} />
-            <span>{it.label}</span>
+            {it.action.type === "ask" ? (
+              // 「?」是核心能力：只显示图标，不带文字
+              <Icon name="ask" size={L.icon + 10} />
+            ) : (
+              <>
+                <Icon name={it.icon} size={L.icon} />
+                <span>{it.label}</span>
+              </>
+            )}
           </div>
         );
       })}

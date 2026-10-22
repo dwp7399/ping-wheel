@@ -60,7 +60,17 @@ export function installPreviewMocks(label: string) {
         case "image_data_url":
           return PIXEL;
         case "account_get":
-          return { server_url: "http://127.0.0.1:8787", has_token: true, token_hint: "…167d" };
+          return { server_url: "http://127.0.0.1:8787", has_token: sp.get("login") !== "0", token_hint: "…167d" };
+        case "locale_get":
+        case "locale_set":
+          return {
+            setting: "auto",
+            effective: sp.get("lang") ?? "zh-CN",
+            timezone: "Asia/Shanghai",
+            langs: [["zh-CN", "简体中文"], ["zh-TW", "繁體中文"], ["en", "English"], ["ja", "日本語"], ["ko", "한국어"], ["es", "Español"]],
+          };
+        case "login_email_start":
+          return null;
         case "account_me":
           return {
             user: { id: 1, name: "测试用户", email: "test@example.com" },

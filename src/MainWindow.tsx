@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { t } from "./i18n";
 import { Icon } from "./icons";
 import { api, on, timeText } from "./api";
 import { getConfig, onConfigChanged, resetConfig, setConfig } from "./tauriSource";
@@ -13,15 +14,15 @@ type ActionEvent = {
   detail: string;
 };
 
-const STATUS_TEXT = { done: "已执行", pending: "处理中", failed: "失败" };
+const STATUS_TEXT = { done: t("已执行"), pending: t("处理中"), failed: t("失败") };
 
 const TABS = [
-  { id: "marks", label: "标记", icon: "mark" },
-  { id: "collections", label: "收藏", icon: "collect" },
-  { id: "wheel", label: "轮盘", icon: "menu" },
-  { id: "plugins", label: "插件", icon: "code" },
-  { id: "account", label: "账号", icon: "sparkle" },
-  { id: "log", label: "记录", icon: "note" },
+  { id: "marks", label: t("标记"), icon: "mark" },
+  { id: "collections", label: t("收藏"), icon: "collect" },
+  { id: "wheel", label: t("轮盘"), icon: "menu" },
+  { id: "plugins", label: t("插件"), icon: "code" },
+  { id: "account", label: t("账号"), icon: "sparkle" },
+  { id: "log", label: t("记录"), icon: "note" },
 ] as const;
 type Tab = (typeof TABS)[number]["id"];
 
@@ -67,9 +68,9 @@ export default function MainWindow() {
         ))}
         <button className="side-item" onClick={() => api.chatOpen()}>
           <Icon name="chat" size={17} />
-          新对话
+          {t("新对话")}
         </button>
-        <div className="side-hint muted">⌘⇧C 唤出轮盘，指向后点击执行；右键或 Esc 取消</div>
+        <div className="side-hint muted">{t("⌘⇧C 唤出轮盘，指向后点击执行；右键或 Esc 取消")}</div>
       </nav>
 
       <main className="main">
@@ -88,17 +89,17 @@ export default function MainWindow() {
           <section>
             <div className="page-head">
               <h2>
-                最近触发 <span className="muted">本次启动以来</span>
+                {t("最近触发")} <span className="muted">{t("本次启动以来")}</span>
               </h2>
             </div>
             {events.length === 0 ? (
-              <p className="muted empty">还没有触发记录。</p>
+              <p className="muted empty">{t("还没有触发记录。")}</p>
             ) : (
               <ul className="events">
                 {events.map((e) => (
                   <li key={e.at}>
                     <span className="event-name">
-                      <Icon name={e.item?.icon ?? "menu"} size={16} /> {e.item?.label ?? "菜单"}
+                      <Icon name={e.item?.icon ?? "menu"} size={16} /> {e.item?.label ?? t("菜单")}
                     </span>
                     <span className={`muted s-${e.status}`}>
                       {e.detail} · {STATUS_TEXT[e.status]} · {timeText(e.at)}

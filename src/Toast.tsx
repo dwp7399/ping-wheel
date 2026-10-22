@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { t } from "./i18n";
 import { Icon } from "./icons";
 import type { IconName } from "./types";
 
@@ -6,9 +7,9 @@ export type ToastStatus = "done" | "pending" | "failed";
 export type ToastData = { icon: IconName; title: string; detail: string; status: ToastStatus };
 
 const STATUS_TEXT: Record<ToastStatus, string> = {
-  done: "已执行",
-  pending: "处理中",
-  failed: "失败",
+  done: t("已执行"),
+  pending: t("处理中"),
+  failed: t("失败"),
 };
 
 export type ToastSource = (show: (t: ToastData) => void, hide: () => void) => () => void;

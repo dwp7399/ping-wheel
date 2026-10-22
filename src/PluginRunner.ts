@@ -5,6 +5,7 @@
  * 插件 main.js 是一个 ES 模块，导出 run(ctx, api)（或 default.run）。
  */
 import { invoke } from "@tauri-apps/api/core";
+import { t } from "./i18n";
 
 type Msg = { role: "user" | "assistant"; content: unknown };
 
@@ -36,7 +37,7 @@ export async function runPlugin() {
     const mod = await import(/* @vite-ignore */ url);
     URL.revokeObjectURL(url);
     const run = mod.run ?? mod.default?.run ?? mod.default;
-    if (typeof run !== "function") throw new Error("插件没有导出 run(ctx, api)");
+    if (typeof run !== "function") throw new Error(t("插件没有导出 run(ctx, api)"));
     await run(ctx, api);
     await invoke("plugin_finish", { error: null });
   } catch (e) {

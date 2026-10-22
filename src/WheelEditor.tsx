@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { t } from "./i18n";
 import Wheel, { WHEEL_SIZE, WheelSource, layoutFor, polar } from "./Wheel";
 import { Icon } from "./icons";
 import { PluginInfo, api } from "./api";
@@ -27,7 +28,7 @@ function IconPicker({ value, onChange }: { value: WheelItem["icon"]; onChange: (
   const [open, setOpen] = useState(false);
   return (
     <div className="icon-picker" onBlur={(e) => !e.currentTarget.contains(e.relatedTarget) && setOpen(false)}>
-      <button className="icon-btn" title="选择图标" onClick={() => setOpen((o) => !o)}>
+      <button className="icon-btn" title={t("选择图标")} onClick={() => setOpen((o) => !o)}>
         <Icon name={value} size={18} />
       </button>
       {open && (
@@ -145,9 +146,9 @@ export default function WheelEditor({
   const save = async () => {
     try {
       await onSave(items);
-      setStatus({ ok: true, text: "已保存，下次唤出即生效" });
+      setStatus({ ok: true, text: t("已保存，下次唤出即生效") });
     } catch (e) {
-      setStatus({ ok: false, text: `保存失败：${e}` });
+      setStatus({ ok: false, text: t("保存失败：{e}", { e: String(e) }) });
     }
   };
 
@@ -155,9 +156,9 @@ export default function WheelEditor({
     try {
       setItems(await onReset());
       setFocus(null);
-      setStatus({ ok: true, text: "已恢复默认" });
+      setStatus({ ok: true, text: t("已恢复默认") });
     } catch (e) {
-      setStatus({ ok: false, text: `恢复失败：${e}` });
+      setStatus({ ok: false, text: t("恢复失败：{e}", { e: String(e) }) });
     }
   };
 
@@ -165,16 +166,16 @@ export default function WheelEditor({
     <section className="editor">
       <div className="editor-head">
         <h2>
-          轮盘方向{" "}
+          {t("轮盘方向")}{" "}
           <span className="muted">
-            {items.length} / {MAX_ITEMS}，每项方位固定，新增一项只会切分它两侧相邻项之间的范围
+            {t("{n} / {max}，每项方位固定，新增一项只会切分它两侧相邻项之间的范围", { n: items.length, max: MAX_ITEMS })}
           </span>
         </h2>
         <div className="editor-actions">
           {status && <span className={status.ok ? "ok" : "err"}>{status.text}</span>}
-          <button onClick={reset}>恢复默认</button>
+          <button onClick={reset}>{t("恢复默认")}</button>
           <button className="primary" disabled={!dirty} onClick={save}>
-            保存
+            {t("保存")}
           </button>
         </div>
       </div>
@@ -190,7 +191,7 @@ export default function WheelEditor({
                   key={a}
                   className={`ghost ${pending === a ? "on" : ""}`}
                   style={{ left: x, top: y, width: L.w * 0.7, height: L.h * 0.7 }}
-                  title={`在「${directionName(a)}」添加`}
+                  title={t("在「{dir}」添加", { dir: directionName(a) })}
                   onClick={() => setPending(a)}
                 >
                   +
@@ -211,7 +212,7 @@ export default function WheelEditor({
               <select
                 className="dir-select"
                 value={it.angle}
-                title="方位"
+                title={t("方位")}
                 onChange={(e) => {
                   const angle = Number(e.target.value);
                   const id = it.id;
@@ -235,7 +236,7 @@ export default function WheelEditor({
                 value={it.label}
                 maxLength={6}
                 onChange={(e) => update(i, { label: e.target.value })}
-                placeholder="名称"
+                placeholder={t("名称")}
               />
               <select
                 value={it.action.type}
@@ -263,7 +264,7 @@ export default function WheelEditor({
                   className="extra-input"
                   value={it.action.prompt}
                   onChange={(e) => update(i, { action: { type: "ask", prompt: e.target.value } })}
-                  placeholder="提问（留空则让 AI 解释截图）"
+                  placeholder={t("固定的问题（留空则理解标记处的内容）")}
                 />
               )}
               {it.action.type === "open" && (
@@ -271,7 +272,7 @@ export default function WheelEditor({
                   className="extra-input"
                   value={it.action.target}
                   onChange={(e) => update(i, { action: { type: "open", target: e.target.value } })}
-                  placeholder="https://… 或 /Applications/…"
+                  placeholder={t("https://… 或 /Applications/…")}
                 />
               )}
               {it.action.type === "plugin" && (
@@ -284,7 +285,7 @@ export default function WheelEditor({
                   }}
                 >
                   {!pluginActions.some((x) => it.action.type === "plugin" && x.key === `${it.action.plugin}::${it.action.action}`) && (
-                    <option value={`${it.action.plugin}::${it.action.action}`}>（插件未安装）</option>
+                    <option value={`${it.action.plugin}::${it.action.action}`}>{t("（插件未安装）")}</option>
                   )}
                   {pluginActions.map((x) => (
                     <option key={x.key} value={x.key}>
@@ -298,7 +299,7 @@ export default function WheelEditor({
               )}
               <div className="row-buttons">
                 <button
-                  title="删除"
+                  title={t("删除")}
                   disabled={items.length <= 1}
                   onClick={() => {
                     setItems((list) => list.filter((_, j) => j !== i));
@@ -312,7 +313,7 @@ export default function WheelEditor({
           ))}
 
           <div className="editor-add">
-            <span className="muted">添加到</span>
+            <span className="muted">{t("添加到")}</span>
             <select
               className="dir-select"
               value={pending ?? ""}

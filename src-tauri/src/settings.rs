@@ -23,10 +23,18 @@ impl Default for Account {
     }
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
     pub account: Account,
+    /// 语言："auto"（按系统时区）或支持的语言代码
+    pub language: String,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self { account: Account::default(), language: "auto".into() }
+    }
 }
 
 #[derive(Default)]
@@ -90,12 +98,70 @@ pub fn account_get(state: State<'_, SettingsState>) -> AccountView {
     view(&state.0.lock().unwrap().account)
 }
 
+pub fn set_token(app: &AppHandle, token: &str) -> Result<(), String> {
+    let state = app.state::<SettingsState>();
+    let mut s = state.0.lock().unwrap().clone();
+    s.account.token = token.to_string();
+    save(app, &s)?;
+    *state.0.lock().unwrap() = s;
+    Ok(())
+}
+
+/// 退出登录：通知服务端作废令牌，再清掉本地令牌。
+#[tauri::command]
+pub async fn account_logout(app: AppHandle) -> Result<(), String> {
+    crate::cloud::logout(&app).await;
+    set_token(&app, "")?;
+    *app.state::<crate::cloud::CloudState>().0.lock().unwrap() = None;
+    log::info!("账号：已退出登录");
+    Ok(())
+}
+
+#[derive(Serialize)]
+pub struct LocaleView {
+    /// 设置值："auto" 或语言代码
+    setting: String,
+    /// 实际使用的语言
+    effective: String,
+    timezone: String,
+    langs: Vec<(String, String)>,
+}
+
+fn locale_view(setting: &str) -> LocaleView {
+    LocaleView {
+        setting: setting.to_string(),
+        effective: crate::i18n::current(),
+        timezone: crate::i18n::detect_timezone().unwrap_or_default(),
+        langs: crate::i18n::LANGS.iter().map(|(c, n)| (c.to_string(), n.to_string())).collect(),
+    }
+}
+
+#[tauri::command]
+pub fn locale_get(state: State<'_, SettingsState>) -> LocaleView {
+    locale_view(&state.0.lock().unwrap().language)
+}
+
+#[tauri::command]
+pub fn locale_set(app: AppHandle, language: String) -> Result<LocaleView, String> {
+    use tauri::Emitter;
+    let language = if crate::i18n::is_supported(&language) { language } else { "auto".into() };
+    let state = app.state::<SettingsState>();
+    let mut s = state.0.lock().unwrap().clone();
+    s.language = language.clone();
+    save(&app, &s)?;
+    *state.0.lock().unwrap() = s;
+    let lang = crate::i18n::apply(&language);
+    log::info!("设置：语言改为 {lang}（设置 {language}）");
+    let _ = app.emit("locale:changed", &lang);
+    Ok(locale_view(&language))
+}
+
 /// token 为 None 表示不修改已保存的令牌。
 #[tauri::command]
 pub async fn account_set(app: AppHandle, server_url: String, token: Option<String>) -> Result<AccountView, String> {
     let server_url = server_url.trim().trim_end_matches('/').to_string();
     if !server_url.starts_with("http") {
-        return Err("服务地址需以 http(s):// 开头".into());
+        return Err(t!("服务地址需以 http(s):// 开头"));
     }
     let state = app.state::<SettingsState>();
     let mut s = state.0.lock().unwrap().clone();

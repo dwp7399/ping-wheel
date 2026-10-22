@@ -6,6 +6,9 @@ const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement)
 const inTauri = "__TAURI_INTERNALS__" in window;
 
 async function boot() {
+  // 先确定语言，再加载各界面（界面模块里的文案在加载时就会翻译）
+  const { initLocale } = await import("./i18n");
+  await initLocale(inTauri);
   if (!inTauri) {
     // 浏览器里打开 Vite 地址时进入预览模式，方便调界面
     document.documentElement.dataset.window = "preview";

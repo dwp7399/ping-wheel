@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { t } from "./i18n";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -108,15 +109,15 @@ export default function Panel() {
           {state.kind === "ask" ? "?" : <Icon name={state.kind === "chat" ? "chat" : "sparkle"} size={14} />}
         </span>
         <span className="panel-title" data-tauri-drag-region title={state.title}>
-          {state.title || (state.kind === "chat" ? "对话" : "")}
+          {state.title || (state.kind === "chat" ? t("对话") : "")}
         </span>
-        <button className={`panel-icon ${state.pinned ? "on" : ""}`} onClick={pin} title={state.pinned ? "取消钉住" : "钉在桌面上"}>
+        <button className={`panel-icon ${state.pinned ? "on" : ""}`} onClick={pin} title={state.pinned ? t("取消钉住") : t("钉在桌面上")}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
             <path d="M9 4h6l-1 6 3 3H7l3-3-1-6Z" fill={state.pinned ? "currentColor" : "none"} />
             <path d="M12 13v7" />
           </svg>
         </button>
-        <button className="panel-icon" onClick={() => api.panelClose()} title="关闭（Esc）">
+        <button className="panel-icon" onClick={() => api.panelClose()} title={t("关闭（Esc）")}>
           ✕
         </button>
       </header>
@@ -129,7 +130,7 @@ export default function Panel() {
           stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
         }}
       >
-        {empty && <div className="panel-empty muted">有什么想问的？Enter 发送，Shift+Enter 换行</div>}
+        {empty && <div className="panel-empty muted">{t("有什么想问的？Enter 发送，Shift+Enter 换行")}</div>}
         {turns.map((t, i) =>
           t.role === "user" ? (
             <div key={i} className="p-user">
@@ -153,7 +154,7 @@ export default function Panel() {
                 <i />
                 <i />
               </span>
-              思考中
+              {t("思考中")}
             </div>
           ))}
         {state.error && <div className="p-error">{state.error}</div>}
@@ -164,7 +165,7 @@ export default function Panel() {
           ref={inputRef}
           value={input}
           rows={1}
-          placeholder={busy ? "正在回答…" : state.kind === "ask" ? "继续追问…" : "输入问题…"}
+          placeholder={busy ? t("正在回答…") : state.kind === "ask" ? t("继续追问…") : t("输入问题…")}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
@@ -173,7 +174,7 @@ export default function Panel() {
             }
           }}
         />
-        <button className="panel-send" disabled={!input.trim() || busy} onClick={send} title="发送">
+        <button className="panel-send" disabled={!input.trim() || busy} onClick={send} title={t("发送")}>
           ↑
         </button>
       </div>

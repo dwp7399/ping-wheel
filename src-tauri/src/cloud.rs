@@ -58,13 +58,54 @@ fn client(timeout: Duration) -> Result<reqwest::Client, String> {
         .connect_timeout(Duration::from_secs(8))
         .timeout(timeout)
         .build()
-        .map_err(|e| format!("创建 HTTP 客户端失败：{e}"))
+        .map_err(|e| t!("创建 HTTP 客户端失败：{e}", e = e))
+}
+
+/// 未登录也能调用的接口（邮箱登录）
+async fn post_public(app: &AppHandle, path: &str, body: &Value) -> Result<Value, String> {
+    let a = settings::account(app);
+    let resp = client(Duration::from_secs(20))?
+        .post(format!("{}{path}", a.server_url.trim_end_matches('/')))
+        .header("X-Lang", crate::i18n::current())
+        .json(body)
+        .send()
+        .await
+        .map_err(|e| t!("连接服务失败：{e}", e = e))?;
+    if !resp.status().is_success() {
+        return Err(error_of(resp).await);
+    }
+    resp.json().await.map_err(|e| t!("解析服务响应失败：{e}", e = e))
+}
+
+/// 邮箱登录第一步：发送验证码。
+#[tauri::command]
+pub async fn login_email_start(app: AppHandle, email: String) -> Result<(), String> {
+    post_public(&app, "/v1/auth/email/start", &json!({ "email": email.trim() })).await.map(|_| ())
+}
+
+/// 邮箱登录第二步：校验验证码，成功后保存令牌并刷新订阅。
+#[tauri::command]
+pub async fn login_email_verify(app: AppHandle, email: String, code: String) -> Result<Me, String> {
+    let v = post_public(&app, "/v1/auth/email/verify", &json!({ "email": email.trim(), "code": code.trim() })).await?;
+    let token = v["token"].as_str().ok_or_else(|| t!("登录失败"))?;
+    settings::set_token(&app, token)?;
+    log::info!("账号：邮箱登录成功");
+    refresh_entitlements(&app).await
+}
+
+/// 作废当前令牌（失败也不影响本地退出）。
+pub async fn logout(app: &AppHandle) {
+    if let Ok((url, token)) = endpoint(app, "/v1/auth/logout") {
+        if let Ok(c) = client(Duration::from_secs(8)) {
+            let _ = c.post(url).bearer_auth(token).send().await;
+        }
+    }
 }
 
 fn endpoint(app: &AppHandle, path: &str) -> Result<(String, String), String> {
     let a = settings::account(app);
     if a.token.is_empty() {
-        return Err("还没有登录账号，请在菜单 → 账号里填写服务地址和令牌".into());
+        return Err(t!("还没有登录，请在菜单 → 账号里用邮箱登录"));
     }
     Ok((format!("{}{path}", a.server_url.trim_end_matches('/')), a.token))
 }
@@ -78,9 +119,9 @@ async fn error_of(resp: reqwest::Response) -> String {
         .and_then(|v| v["error"].as_str().map(str::to_string))
         .unwrap_or_else(|| text.chars().take(200).collect());
     match status.as_u16() {
-        401 => "账号令牌无效，请在菜单 → 账号里重新填写".into(),
+        401 => t!("登录已失效，请在菜单 → 账号里重新登录"),
         402 => msg, // 订阅 / 额度不足，后端给出原因
-        _ => format!("服务返回 {status}：{msg}"),
+        _ => t!("服务返回 {status}：{msg}", status = status, msg = msg),
     }
 }
 
@@ -89,14 +130,15 @@ async fn post_json(app: &AppHandle, path: &str, body: &Value, timeout: Duration)
     let resp = client(timeout)?
         .post(url)
         .bearer_auth(token)
+        .header("X-Lang", crate::i18n::current())
         .json(body)
         .send()
         .await
-        .map_err(|e| format!("连接服务失败：{e}"))?;
+        .map_err(|e| t!("连接服务失败：{e}", e = e))?;
     if !resp.status().is_success() {
         return Err(error_of(resp).await);
     }
-    resp.json().await.map_err(|e| format!("解析服务响应失败：{e}"))
+    resp.json().await.map_err(|e| t!("解析服务响应失败：{e}", e = e))
 }
 
 /// 流式调用，返回完整正文。
@@ -110,10 +152,11 @@ async fn post_stream(
     let resp = client(Duration::from_secs(300))?
         .post(url)
         .bearer_auth(token)
+        .header("X-Lang", crate::i18n::current())
         .json(body)
         .send()
         .await
-        .map_err(|e| format!("连接服务失败：{e}"))?;
+        .map_err(|e| t!("连接服务失败：{e}", e = e))?;
     if !resp.status().is_success() {
         return Err(error_of(resp).await);
     }
@@ -123,7 +166,7 @@ async fn post_stream(
     let mut event = String::new();
     let mut bytes = resp.bytes_stream();
     while let Some(chunk) = bytes.next().await {
-        let chunk = chunk.map_err(|e| format!("读取服务输出中断：{e}"))?;
+        let chunk = chunk.map_err(|e| t!("读取服务输出中断：{e}", e = e))?;
         buf.push_str(&String::from_utf8_lossy(&chunk));
         while let Some(pos) = buf.find('\n') {
             let line: String = buf.drain(..=pos).collect();
@@ -140,7 +183,7 @@ async fn post_stream(
                             on_event(Event::Delta(t));
                         }
                     }
-                    "error" => return Err(v["error"].as_str().unwrap_or("服务出错").to_string()),
+                    "error" => return Err(v["error"].as_str().map(str::to_string).unwrap_or_else(|| t!("服务出错"))),
                     "done" => return Ok(content),
                     _ => {}
                 }
@@ -182,13 +225,14 @@ pub async fn me(app: &AppHandle) -> Result<Me, String> {
     let resp = client(Duration::from_secs(15))?
         .get(url)
         .bearer_auth(token)
+        .header("X-Lang", crate::i18n::current())
         .send()
         .await
-        .map_err(|e| format!("连接服务失败：{e}"))?;
+        .map_err(|e| t!("连接服务失败：{e}", e = e))?;
     if !resp.status().is_success() {
         return Err(error_of(resp).await);
     }
-    resp.json().await.map_err(|e| format!("解析账号信息失败：{e}"))
+    resp.json().await.map_err(|e| t!("解析账号信息失败：{e}", e = e))
 }
 
 /// 刷新缓存的账号信息。
