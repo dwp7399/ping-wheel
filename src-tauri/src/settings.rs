@@ -8,8 +8,6 @@ use std::sync::Mutex;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, State};
 
-pub const DEFAULT_SERVER: &str = "http://127.0.0.1:8787";
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Account {
@@ -17,9 +15,25 @@ pub struct Account {
     pub token: String,
 }
 
+impl Account {
+    const DEV_SERVER: &'static str = "http://127.0.0.1:8787";
+
+    /// 编译进二进制的默认服务根地址。
+    /// 发布构建由环境变量 `PING_WHEEL_SERVER_URL` 注入（见 build.rs）；未设置时为本机开发地址。
+    /// 已写入 settings.json 的地址优先于这个默认值。
+    pub fn default_server() -> String {
+        let raw = env!("PING_WHEEL_SERVER_URL").trim().trim_end_matches('/');
+        if raw.is_empty() {
+            Self::DEV_SERVER.to_string()
+        } else {
+            raw.to_string()
+        }
+    }
+}
+
 impl Default for Account {
     fn default() -> Self {
-        Self { server_url: DEFAULT_SERVER.into(), token: String::new() }
+        Self { server_url: Self::default_server(), token: String::new() }
     }
 }
 
@@ -174,4 +188,19 @@ pub async fn account_set(app: AppHandle, server_url: String, token: Option<Strin
     *state.0.lock().unwrap() = s;
     crate::cloud::refresh_entitlements(&app).await.ok();
     Ok(v)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Account;
+
+    #[test]
+    fn default_server_是_http_且没有末尾斜杠() {
+        let url = Account::default_server();
+        assert!(url.starts_with("http://") || url.starts_with("https://"), "{url}");
+        assert!(!url.ends_with('/'), "{url}");
+        if env!("PING_WHEEL_SERVER_URL").is_empty() {
+            assert_eq!(url, Account::DEV_SERVER);
+        }
+    }
 }

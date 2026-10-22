@@ -1,4 +1,5 @@
-# 推送 v* 标签时，打包 macOS（Apple 芯片 / Intel）和 Windows 安装包，发布到 GitHub Releases。
+# 推送 v* 标签时，打包 macOS（Apple 芯片 / Intel，ad-hoc 签名）和 Windows 安装包，发布到 GitHub Releases。
+# 服务地址只在这个发布工作流里强制要求。build.rs 不因 CI=true 拒绝空值，分支上的其它检查可以不设置 PING_WHEEL_SERVER_URL。
 name: release
 
 on:
@@ -25,6 +26,8 @@ jobs:
             args: ""
             rust_targets: ""
     runs-on: ${{ matrix.platform }}
+    env:
+      PING_WHEEL_SERVER_URL: ${{ vars.PING_WHEEL_SERVER_URL }}
     steps:
       - uses: actions/checkout@v4
 
@@ -47,6 +50,14 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: 要求发布构建带上服务地址
+        shell: bash
+        run: |
+          if [ -z "${PING_WHEEL_SERVER_URL}" ]; then
+            echo "仓库变量 PING_WHEEL_SERVER_URL 未设置，拒绝打出指向 localhost 的发布包"
+            exit 1
+          fi
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -57,3 +68,44 @@ jobs:
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
+
+      - name: 确认 ad-hoc 签名并上传 zip
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          apps=()
+          while IFS= read -r p; do
+            apps+=("$p")
+          done < <(find src-tauri/target -path '*/bundle/macos/Ping Wheel.app' -type d)
+          if [ "${#apps[@]}" -ne 1 ]; then
+            echo "期望恰好一个 Ping Wheel.app，实际 ${#apps[@]}"
+            find src-tauri/target -path '*/bundle/macos/Ping Wheel.app' -type d
+            exit 1
+          fi
+          app="${apps[0]}"
+
+          codesign -dvvv "$app" 2>&1 | tee /tmp/cs.txt
+          grep -q "Signature=adhoc" /tmp/cs.txt
+          grep -q "Sealed Resources" /tmp/cs.txt
+          if grep -q "linker-signed" /tmp/cs.txt; then
+            echo "仍是链接器签名，不是 codesign identity \"-\""
+            exit 1
+          fi
+          codesign --verify --strict "$app"
+          codesign -d -r- "$app"
+
+          dmgs=()
+          while IFS= read -r p; do
+            dmgs+=("$p")
+          done < <(find src-tauri/target -path '*/bundle/dmg/*.dmg' -type f)
+          if [ "${#dmgs[@]}" -ne 1 ]; then
+            echo "期望恰好一个 dmg，实际 ${#dmgs[@]}"
+            printf '%s\n' "${dmgs[@]:-}"
+            exit 1
+          fi
+          zip="$(dirname "${dmgs[0]}")/$(basename "${dmgs[0]}" .dmg).app.zip"
+          ditto -c -k --keepParent "$app" "$zip"
+          gh release upload "${GITHUB_REF_NAME}" "$zip" --clobber
