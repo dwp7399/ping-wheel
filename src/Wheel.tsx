@@ -174,7 +174,7 @@ export default function Wheel({ source, items }: { source: WheelSource; items: W
               ["--ny" as string]: ny,
             }}
           >
-            {it.action.type === "ask" ? (
+            {it.action.type === "ask" && it.label === "?" ? (
               // 「?」是核心能力：只显示图标，不带文字
               <Icon name="ask" size={L.icon + 10} />
             ) : (

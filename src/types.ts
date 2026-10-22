@@ -1,7 +1,7 @@
 import { t } from "./i18n";
 
 export type Action =
-  | { type: "ask"; prompt: string }
+  | { type: "ask"; prompt: string; mode: string; custom: string }
   | { type: "mark" }
   | { type: "collect" }
   | { type: "chat" }
@@ -55,17 +55,36 @@ export const ACTION_TYPES: Record<ActionType, { label: string; hint: string; ico
 };
 
 export function actionHint(a: Action): string {
-  if (a.type === "ask" && a.prompt.trim()) return t("看标记处：{prompt}", { prompt: a.prompt.trim() });
+  if (a.type === "ask") {
+    if (a.prompt.trim()) return t("看标记处：{prompt}", { prompt: a.prompt.trim() });
+    if (a.mode && a.mode !== "auto") return askModeName(a.mode);
+  }
   if (a.type === "open" && a.target.trim()) return t("打开 {target}", { target: a.target.trim() });
   return ACTION_TYPES[a.type].hint;
 }
 
 export function newAction(type: ActionType): Action {
-  if (type === "ask") return { type, prompt: "" };
+  if (type === "ask") return { type, prompt: "", mode: "auto", custom: "" };
   if (type === "open") return { type, target: "" };
   if (type === "plugin") return { type, plugin: "", action: "" };
   return { type };
 }
+
+/** 「?」的主要目的（附加提示词在后端，管理台可改） */
+export const ASK_MODES: { id: string; name: string }[] = [
+  { id: "auto", name: t("自动判断") },
+  { id: "translate", name: t("翻译") },
+  { id: "explain", name: t("名词解释") },
+  { id: "reading", name: t("阅读理解") },
+  { id: "summarize", name: t("总结要点") },
+  { id: "code", name: t("代码解释") },
+  { id: "error", name: t("报错排查") },
+  { id: "data", name: t("图表解读") },
+  { id: "ui", name: t("界面怎么用") },
+  { id: "custom", name: t("自定义") },
+];
+
+export const askModeName = (id: string) => ASK_MODES.find((m) => m.id === id)?.name ?? id;
 
 export const ANGLE_STEP = 22.5;
 
@@ -129,6 +148,6 @@ export const DEFAULT_CONFIG: WheelConfig = {
     { id: "mark", angle: 0, label: t("标记"), icon: "mark", action: { type: "mark" } },
     { id: "collect", angle: 90, label: t("收藏"), icon: "collect", action: { type: "collect" } },
     { id: "chat", angle: 180, label: t("对话"), icon: "chat", action: { type: "chat" } },
-    { id: "ask", angle: 270, label: "?", icon: "ask", action: { type: "ask", prompt: "" } },
+    { id: "ask", angle: 270, label: "?", icon: "ask", action: { type: "ask", prompt: "", mode: "auto", custom: "" } },
   ],
 };

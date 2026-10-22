@@ -1292,3 +1292,19 @@ html[data-window="panel"] body {
   font-size: 13px;
   font-weight: 600;
 }
+
+.ask-config {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ask-config select {
+  flex: none;
+  width: 104px;
+}
+
+.ask-config input {
+  flex: 1;
+  min-width: 0;
+}

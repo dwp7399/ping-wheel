@@ -6,6 +6,8 @@ import { PluginInfo, api } from "./api";
 import {
   ACTION_TYPES,
   ANGLE_STEP,
+  ASK_MODES,
+  askModeName,
   ActionType,
   DIRECTIONS,
   ICONS,
@@ -260,12 +262,42 @@ export default function WheelEditor({
                   ))}
               </select>
               {it.action.type === "ask" && (
-                <input
-                  className="extra-input"
-                  value={it.action.prompt}
-                  onChange={(e) => update(i, { action: { type: "ask", prompt: e.target.value } })}
-                  placeholder={t("固定的问题（留空则理解标记处的内容）")}
-                />
+                <div className="extra-input ask-config">
+                  <select
+                    value={it.action.mode}
+                    title={t("主要目的")}
+                    onChange={(e) => {
+                      if (it.action.type !== "ask") return;
+                      const mode = e.target.value;
+                      // 名称还是默认值时，跟着目的一起改：自动判断显示「?」，其他显示目的名
+                      const prevDefault = it.label === "?" || it.label === askModeName(it.action.mode).slice(0, 6);
+                      update(i, {
+                        action: { ...it.action, mode },
+                        ...(prevDefault ? { label: mode === "auto" ? "?" : askModeName(mode).slice(0, 6) } : {}),
+                      });
+                    }}
+                  >
+                    {ASK_MODES.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </select>
+                  {it.action.mode === "custom" ? (
+                    <input
+                      value={it.action.custom}
+                      maxLength={1000}
+                      onChange={(e) => it.action.type === "ask" && update(i, { action: { ...it.action, custom: e.target.value } })}
+                      placeholder={t("你的要求，例如：用一句话解释，并给出一个生活中的例子")}
+                    />
+                  ) : (
+                    <input
+                      value={it.action.prompt}
+                      onChange={(e) => it.action.type === "ask" && update(i, { action: { ...it.action, prompt: e.target.value } })}
+                      placeholder={t("固定的问题（可留空）")}
+                    />
+                  )}
+                </div>
               )}
               {it.action.type === "open" && (
                 <input

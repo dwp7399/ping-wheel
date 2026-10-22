@@ -65,7 +65,7 @@ fn run(app: &AppHandle, item: WheelItem) {
             Ok(()) => (Status::Done, t!("已打开 {target}", target = target.trim()), true),
             Err(e) => (Status::Failed, e, true),
         },
-        Action::Ask { prompt } => match crate::features::ask(app, prompt) {
+        Action::Ask { prompt, mode, custom } => match crate::features::ask(app, prompt, mode, custom) {
             Ok(d) => (Status::Done, d, false),
             Err(e) => (Status::Failed, e, true),
         },

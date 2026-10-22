@@ -48,7 +48,7 @@ fn short(s: &str, n: usize) -> String {
 
 /// 问号：全屏截图（标出问号位置）+ 放大图 + 场景文字 → 后端理解，结果在悬浮面板里流式显示。
 /// 截图只发给模型，不展示给用户；截图文件用完即删。
-pub fn ask(app: &AppHandle, question: &str) -> Result<String, String> {
+pub fn ask(app: &AppHandle, question: &str, mode: &str, custom: &str) -> Result<String, String> {
     let scene = scene::take();
     let cap = screenshot(app)?;
     let images = shot::marked_images(&cap, scene.anchor);
@@ -57,6 +57,8 @@ pub fn ask(app: &AppHandle, question: &str) -> Result<String, String> {
 
     let body = json!({
         "question": question.trim(),
+        "mode": mode,
+        "custom_prompt": custom.trim(),
         "context": scene.context_json(Some(images.marker)),
         "images": { "full": images.full, "crop": images.crop },
     });

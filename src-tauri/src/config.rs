@@ -16,10 +16,15 @@ pub const ANGLE_STEP: f64 = 22.5;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum Action {
-    /// 截图并让 LLM 解释；prompt 为空时用默认提问
+    /// 「?」：截图 + 场景交给后端理解。mode 为主要目的（见后端 ask_modes），
+    /// custom 时附加用户自己写的要求；prompt 为固定的问题，空则理解标记处内容
     Ask {
         #[serde(default)]
         prompt: String,
+        #[serde(default = "default_ask_mode")]
+        mode: String,
+        #[serde(default)]
+        custom: String,
     },
     /// 记录当前场景
     Mark,
@@ -37,6 +42,10 @@ pub enum Action {
         plugin: String,
         action: String,
     },
+}
+
+fn default_ask_mode() -> String {
+    "auto".into()
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -68,7 +77,7 @@ impl Default for WheelConfig {
                 item("mark", 0.0, &t!("标记"), "mark", Action::Mark),
                 item("collect", 90.0, &t!("收藏"), "collect", Action::Collect),
                 item("chat", 180.0, &t!("对话"), "chat", Action::Chat),
-                item("ask", 270.0, "?", "ask", Action::Ask { prompt: String::new() }),
+                item("ask", 270.0, "?", "ask", Action::Ask { prompt: String::new(), mode: default_ask_mode(), custom: String::new() }),
             ],
         }
     }

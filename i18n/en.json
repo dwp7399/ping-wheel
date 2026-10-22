@@ -39,7 +39,6 @@
   "在「{dir}」添加": "Add at {dir}",
   "方位": "Direction",
   "名称": "Name",
-  "固定的问题（留空则理解标记处的内容）": "Fixed question (leave empty to explain what's marked)",
   "https://… 或 /Applications/…": "https://… or /Applications/…",
   "（插件未安装）": "(plugin not installed)",
   "删除": "Delete",
@@ -202,5 +201,18 @@
   "截取当前屏幕": "Take a screenshot of the current screen",
   "调用通用模型接口（消耗你的模型额度）": "Call the general AI API (uses your AI quota)",
   "写入剪贴板": "Write to the clipboard",
-  "打开网页链接": "Open web links"
+  "打开网页链接": "Open web links",
+  "主要目的": "Purpose",
+  "你的要求，例如：用一句话解释，并给出一个生活中的例子": "Your instructions, e.g. explain in one sentence with an everyday example",
+  "固定的问题（可留空）": "Fixed question (optional)",
+  "自动判断": "Auto",
+  "翻译": "Translate",
+  "名词解释": "Define term",
+  "阅读理解": "Explain passage",
+  "总结要点": "Summarize",
+  "代码解释": "Explain code",
+  "报错排查": "Debug error",
+  "图表解读": "Read chart",
+  "界面怎么用": "How to use this UI",
+  "自定义": "Custom"
 }
