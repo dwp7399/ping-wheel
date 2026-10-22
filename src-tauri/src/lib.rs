@@ -1,7 +1,12 @@
 mod actions;
 mod config;
+mod features;
 #[cfg(target_os = "macos")]
 mod input_macos;
+mod llm;
+mod scene;
+mod settings;
+mod store;
 mod wheel;
 
 /// 平台输入能力的统一入口（Windows 版后续补）。
@@ -44,11 +49,32 @@ pub fn run() {
             config::get_config,
             config::set_config,
             config::reset_config,
-            wheel::wheel_click
+            wheel::wheel_click,
+            settings::settings_get,
+            settings::settings_set_llm,
+            llm::llm_test,
+            features::image_data_url,
+            features::chat_new,
+            features::chat_list,
+            features::chat_messages,
+            features::chat_delete,
+            features::chat_send,
+            features::chat_open_window,
+            features::marks_list,
+            features::mark_restore,
+            features::mark_delete,
+            features::mark_note,
+            features::collections_list,
+            features::collection_delete,
+            features::collection_reclassify,
+            features::collection_open_source,
+            features::usage_today
         ])
         .setup(|app| {
             let cfg = config::load(app.handle());
             *app.state::<config::ConfigState>().0.lock().unwrap() = cfg;
+            app.manage(settings::SettingsState(std::sync::Mutex::new(settings::load(app.handle()))));
+            app.manage(store::open(app.handle())?);
 
             // 不在 Dock 显示，作为菜单栏常驻工具
             #[cfg(target_os = "macos")]
@@ -92,7 +118,7 @@ pub fn run() {
         .on_window_event(|window, event| {
             // 关闭主窗口时只隐藏，保持常驻
             if let WindowEvent::CloseRequested { api, .. } = event {
-                if window.label() == "main" {
+                if window.label() == "main" || window.label() == "chat" {
                     api.prevent_close();
                     let _ = window.hide();
                 }

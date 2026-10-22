@@ -11,6 +11,8 @@ const ARC_SPAN = 56;
 
 export type WheelHandlers = {
   open: () => void;
+  /** 关闭前清空画面，避免下次显示时闪出旧内容 */
+  close?: () => void;
   move: (dx: number, dy: number, index: Selection) => void;
 };
 
@@ -108,10 +110,15 @@ export default function Wheel({ source, items }: { source: WheelSource; items: W
         move(0, 0, null);
         const root = rootRef.current;
         if (root) {
-          root.classList.remove("pop");
+          root.classList.remove("pop", "closed");
           void root.offsetWidth;
           root.classList.add("pop");
         }
+      },
+      close: () => {
+        rootRef.current?.classList.add("closed");
+        select(null);
+        move(0, 0, null);
       },
       move,
     });

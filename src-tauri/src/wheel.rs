@@ -159,6 +159,9 @@ fn open_wheel(app: &AppHandle) {
         g.session
     };
 
+    // 在后台开始采集当前场景（应用、窗口、链接），执行动作时再取
+    crate::scene::begin();
+
     let tap = input::tap_active();
     let _ = win.emit("wheel:open", tap);
     // 有事件监听时由它拦截点击，窗口完全穿透；否则让窗口自己接收点击
@@ -231,10 +234,18 @@ fn confirm(app: &AppHandle) {
 
 fn close(app: &AppHandle) {
     app.state::<WheelState>().0.lock().unwrap().open = false;
-    if let Some(win) = app.get_webview_window("wheel") {
-        let _ = win.hide();
-    }
     let _ = app.global_shortcut().unregister(escape_shortcut());
+    let Some(win) = app.get_webview_window("wheel") else { return };
+    // 先让前端清空画面，过一两帧再隐藏窗口：下次显示时最先出现的是空白帧，不会闪出上次的内容
+    let _ = win.emit("wheel:close", ());
+    let app = app.clone();
+    thread::spawn(move || {
+        thread::sleep(Duration::from_millis(40));
+        // 期间又唤出了就不隐藏
+        if !is_open(&app) {
+            let _ = win.hide();
+        }
+    });
 }
 
 /// 无事件监听时，轮盘窗口自己收到的点击（button：0 左键，2 右键）。

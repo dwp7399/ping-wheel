@@ -1,5 +1,5 @@
-//! 轮盘选中后执行的动作。问号、标记、收藏、对话目前是占位，后续步骤逐个实现。
-//! 每次执行都在唤出点弹出提示窗，说明执行了什么、结果如何。
+//! 轮盘选中后执行的动作。具体功能在 features.rs；这里负责分发、在后台线程执行，
+//! 并在唤出点弹出提示窗，说明执行了什么、结果如何。
 
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
@@ -13,7 +13,9 @@ use crate::config::{Action, WheelItem};
 
 const TOAST_W: f64 = 360.0;
 const TOAST_H: f64 = 120.0;
-const TOAST_DURATION: Duration = Duration::from_millis(1800);
+const TOAST_DURATION: Duration = Duration::from_millis(2200);
+/// 淡出动画时长，之后再真正隐藏窗口（避免下次显示时闪出旧内容）
+const TOAST_FADE: Duration = Duration::from_millis(180);
 
 static TOAST_SEQ: AtomicU64 = AtomicU64::new(0);
 
@@ -22,7 +24,7 @@ static TOAST_SEQ: AtomicU64 = AtomicU64::new(0);
 enum Status {
     /// 已执行
     Done,
-    /// 功能开发中（占位）
+    /// 已开始，后台继续处理
     Pending,
     /// 执行失败
     Failed,
@@ -51,30 +53,50 @@ pub fn dispatch(app: &AppHandle, item: Option<WheelItem>) {
         record(app, None, Status::Done, "打开菜单".into());
         return;
     };
+    // 截图、读场景、写库都可能耗时，放到后台线程，避免卡住快捷键 / 鼠标事件所在线程
+    let app = app.clone();
+    std::thread::spawn(move || run(&app, item));
+}
 
-    let (status, detail) = match &item.action {
+fn run(app: &AppHandle, item: WheelItem) {
+    // (状态, 说明, 是否弹提示)：问号和对话会直接打开对话窗口，成功时不再弹提示
+    let (status, detail, toast) = match &item.action {
         Action::Open { target } => match open_target(app, target) {
-            Ok(()) => (Status::Done, format!("已打开 {}", target.trim())),
-            Err(e) => (Status::Failed, e),
+            Ok(()) => (Status::Done, format!("已打开 {}", target.trim()), true),
+            Err(e) => (Status::Failed, e, true),
         },
-        Action::Ask { prompt } if !prompt.trim().is_empty() => {
-            (Status::Pending, format!("截图并问：{}（功能开发中）", prompt.trim()))
-        }
-        Action::Ask { .. } => (Status::Pending, "截图并让 AI 解释（功能开发中）".into()),
-        Action::Mark => (Status::Pending, "记下当前场景（功能开发中）".into()),
-        Action::Collect => (Status::Pending, "截图收藏，自动归类（功能开发中）".into()),
-        Action::Chat => (Status::Pending, "新开一个对话（功能开发中）".into()),
+        Action::Ask { prompt } => match crate::features::ask(app, prompt) {
+            Ok(d) => (Status::Done, d, false),
+            Err(e) => (Status::Failed, e, true),
+        },
+        Action::Chat => match crate::features::chat(app) {
+            Ok(d) => (Status::Done, d, false),
+            Err(e) => (Status::Failed, e, true),
+        },
+        Action::Mark => match crate::features::mark(app) {
+            Ok(d) => (Status::Done, format!("已标记：{d}"), true),
+            Err(e) => (Status::Failed, e, true),
+        },
+        Action::Collect => match crate::features::collect(app) {
+            Ok(d) => (Status::Pending, d, true),
+            Err(e) => (Status::Failed, e, true),
+        },
     };
+    if matches!(status, Status::Failed) {
+        log::warn!("动作：「{}」失败：{detail}", item.label);
+    }
 
-    show_toast(
-        app,
-        ToastPayload {
-            icon: item.icon.clone(),
-            title: item.label.clone(),
-            detail: detail.clone(),
-            status: status.clone(),
-        },
-    );
+    if toast {
+        show_toast(
+            app,
+            ToastPayload {
+                icon: item.icon.clone(),
+                title: item.label.clone(),
+                detail: detail.clone(),
+                status: status.clone(),
+            },
+        );
+    }
     record(app, Some(item), status, detail);
 }
 
@@ -106,10 +128,14 @@ fn show_toast(app: &AppHandle, payload: ToastPayload) {
     thread::spawn(move || {
         thread::sleep(TOAST_DURATION);
         // 期间又弹了新提示就不隐藏
+        if TOAST_SEQ.load(Ordering::Relaxed) != seq {
+            return;
+        }
+        let Some(win) = app.get_webview_window("toast") else { return };
+        let _ = win.emit("toast:hide", ());
+        thread::sleep(TOAST_FADE);
         if TOAST_SEQ.load(Ordering::Relaxed) == seq {
-            if let Some(win) = app.get_webview_window("toast") {
-                let _ = win.hide();
-            }
+            let _ = win.hide();
         }
     });
 }

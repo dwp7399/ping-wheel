@@ -25,6 +25,12 @@ serde_json = "1"
 tauri-plugin-global-shortcut = "2"
 log = "0.4"
 tauri-plugin-log = "2"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "stream"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+base64 = "0.22"
+futures-util = "0.3"
+url = "2"
+tokio = { version = "1", features = ["time", "process", "macros"] }
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

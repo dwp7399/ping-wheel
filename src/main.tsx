@@ -30,6 +30,21 @@ async function boot() {
       );
       return;
     }
+    if (view === "main" || view === "chat") {
+      const { installPreviewMocks } = await import("./previewMocks");
+      installPreviewMocks(view);
+      document.documentElement.dataset.window = view;
+      if (view === "chat") {
+        const { default: ChatWindow } = await import("./ChatWindow");
+        root.render(<ChatWindow />);
+        const { emit } = await import("@tauri-apps/api/event");
+        setTimeout(() => emit("chat:open", 1), 100);
+      } else {
+        const { default: MainWindow } = await import("./MainWindow");
+        root.render(<MainWindow />);
+      }
+      return;
+    }
     if (view === "editor") {
       const [{ default: WheelEditor }, { DEFAULT_CONFIG }] = await Promise.all([
         import("./WheelEditor"),
@@ -62,14 +77,18 @@ async function boot() {
     ]);
     root.render(
       <Toast
-        source={(show) => {
-          const off = listen<import("./Toast").ToastData>("toast:show", (e) => show(e.payload));
-          return () => {
-            off.then((f) => f());
-          };
+        source={(show, hide) => {
+          const offs = [
+            listen<import("./Toast").ToastData>("toast:show", (e) => show(e.payload)),
+            listen("toast:hide", () => hide()),
+          ];
+          return () => offs.forEach((p) => p.then((f) => f()));
         }}
       />,
     );
+  } else if (label === "chat") {
+    const { default: ChatWindow } = await import("./ChatWindow");
+    root.render(<ChatWindow />);
   } else if (label === "wheel") {
     const { default: WheelWindow } = await import("./WheelWindow");
     root.render(<WheelWindow />);

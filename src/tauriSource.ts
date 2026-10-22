@@ -6,6 +6,7 @@ import type { Selection, WheelConfig } from "./types";
 export const tauriSource: WheelSource = (h) => {
   const offs = [
     listen("wheel:open", () => h.open()),
+    listen("wheel:close", () => h.close?.()),
     listen<{ dx: number; dy: number; index: Selection }>("wheel:move", (e) =>
       h.move(e.payload.dx, e.payload.dy, e.payload.index),
     ),
