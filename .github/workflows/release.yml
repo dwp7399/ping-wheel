@@ -103,7 +103,7 @@ jobs:
           done < <(find src-tauri/target -path '*/bundle/dmg/*.dmg' -type f)
           if [ "${#dmgs[@]}" -ne 1 ]; then
             echo "期望恰好一个 dmg，实际 ${#dmgs[@]}"
-            printf '%s\n' "${dmgs[@]:-}"
+            find src-tauri/target -path '*/bundle/dmg/*.dmg' -type f
             exit 1
           fi
           zip="$(dirname "${dmgs[0]}")/$(basename "${dmgs[0]}" .dmg).app.zip"
