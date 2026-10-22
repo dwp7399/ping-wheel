@@ -1,7 +1,15 @@
 import { useEffect, useMemo, useRef } from "react";
 import { t } from "./i18n";
 import { Icon } from "./icons";
-import { DEAD_ZONE, Selection, WheelItem, actionHint, sectorOf } from "./types";
+import { ACTION_COLORS, DEAD_ZONE, HUB_COLORS, Palette, Selection, WheelItem, actionHint, sectorOf } from "./types";
+
+/** 把配色写成 CSS 变量 */
+const paletteVars = (p: Palette) => ({
+  ["--c" as string]: p.fill,
+  ["--c-lip" as string]: p.lip,
+  ["--c-soft" as string]: p.soft,
+  ["--c-ink" as string]: p.ink,
+});
 
 /** 轮盘窗口边长，需与 tauri.conf.json / wheel.rs 的 WHEEL_SIZE 一致 */
 export const WHEEL_SIZE = 440;
@@ -87,6 +95,9 @@ export default function Wheel({ source, items }: { source: WheelSource; items: W
     const select = (sel: Selection) => {
       const root = rootRef.current;
       if (!root) return;
+      // 方向弧和提示条跟随选中项的颜色
+      const p = sel === null ? null : ACTION_COLORS[items[sel]?.action.type ?? "ask"];
+      root.style.setProperty("--sel", p?.fill ?? "#3c3c3c");
       root.querySelectorAll(".active").forEach((el) => el.classList.remove("active"));
       root.querySelectorAll(`[data-key="${key(sel)}"]`).forEach((el) => el.classList.add("active"));
       current = sel;
@@ -124,7 +135,7 @@ export default function Wheel({ source, items }: { source: WheelSource; items: W
       move,
     });
     return unsubscribe;
-  }, [source, hints]);
+  }, [source, hints, items]);
 
   return (
     <div
@@ -142,6 +153,7 @@ export default function Wheel({ source, items }: { source: WheelSource; items: W
               key={it.id}
               data-key={i}
               className="sector"
+              style={{ fill: ACTION_COLORS[it.action.type].fill }}
               d={sectorPath(a0, a1, R_RING + 8, L.r + L.h / 2 + 8)}
             />
           );
@@ -152,7 +164,7 @@ export default function Wheel({ source, items }: { source: WheelSource; items: W
         </g>
       </svg>
 
-      <div data-key="c" className="hub" style={{ left: C, top: C }}>
+      <div data-key="c" className="hub" style={{ left: C, top: C, ...paletteVars(HUB_COLORS) }}>
         <Icon name="menu" size={16} />
       </div>
 
@@ -160,29 +172,27 @@ export default function Wheel({ source, items }: { source: WheelSource; items: W
         const [x, y] = polar(L.r, it.angle);
         const rad = (it.angle * Math.PI) / 180;
         const [nx, ny] = [Math.sin(rad), -Math.cos(rad)];
+        // 「?」是核心能力：只显示图标，按钮更大
+        const core = it.action.type === "ask" && it.label === "?";
+        const node = Math.round(Math.min(L.w, L.h) * (core ? 0.98 : 0.8));
         return (
           <div
             key={it.id}
             data-key={i}
-            className="chip"
+            className={`chip ${core ? "core" : ""}`}
             style={{
               left: x,
               top: y,
-              width: L.w,
-              height: L.h,
               ["--nx" as string]: nx,
               ["--ny" as string]: ny,
+              ["--node" as string]: `${node}px`,
+              ...paletteVars(ACTION_COLORS[it.action.type]),
             }}
           >
-            {it.action.type === "ask" && it.label === "?" ? (
-              // 「?」是核心能力：只显示图标，不带文字
-              <Icon name="ask" size={L.icon + 10} />
-            ) : (
-              <>
-                <Icon name={it.icon} size={L.icon} />
-                <span>{it.label}</span>
-              </>
-            )}
+            <div className="node">
+              <Icon name={core ? "ask" : it.icon} size={core ? Math.round(node * 0.56) : L.icon} />
+            </div>
+            {!core && <span className="node-label">{it.label}</span>}
           </div>
         );
       })}

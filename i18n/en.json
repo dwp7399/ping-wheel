@@ -81,7 +81,6 @@
   "未订阅。?、对话、收藏归类和插件的模型调用都需要模型订阅（¥4.9 / ¥9.9 / ¥19.9，每 31 天）。": "Not subscribed. ?, chat, sorting saved items and plugins' AI calls need an AI plan (¥4.9 / ¥9.9 / ¥19.9 per 31 days).",
   "高级功能": "Pro",
   "已解锁自定义插件，{date} 到期": "Custom plugins unlocked until {date}",
-  "未订阅。解锁自定义插件（¥0.99，每 31 天）。": "Not subscribed. Unlock custom plugins (¥0.99 per 31 days).",
   "偏好": "Preferences",
   "高级": "Advanced",
   "服务地址": "Server URL",
@@ -89,7 +88,6 @@
   "已安装「{name}」{version}，可在「轮盘」里把它的动作放到某个方向上": "Installed {name} {version}. Put its actions on the wheel in “Wheel”.",
   "以 zip 包安装，装好后在「轮盘」里放到某个方向上": "Install from a zip, then put it on the wheel in “Wheel”",
   "从 zip 安装…": "Install from zip…",
-  "自定义插件需要订阅「高级功能」（¥0.99，每 31 天），请到「账号」页查看。": "Custom plugins need Pro (¥0.99 per 31 days). See the Account page.",
   "还没有安装插件。": "No plugins installed.",
   "卸载「{name}」？它在轮盘上的动作也会一并移除。": "Uninstall {name}? Its actions will also be removed from the wheel.",
   "卸载": "Uninstall",
@@ -214,5 +212,8 @@
   "报错排查": "Debug error",
   "图表解读": "Read chart",
   "界面怎么用": "How to use this UI",
-  "自定义": "Custom"
+  "自定义": "Custom",
+  "登录后可自动归类": "Sign in to sort automatically",
+  "未订阅。¥0.99 / 31 天解锁自定义插件。说白了这是一杯奶茶的赞助费：客户端开源，想绕过这道检查并不难，但我们相信你会选择请我们喝一杯。": "Not subscribed. ¥0.99 per 31 days unlocks custom plugins. Honestly, it's a bubble-tea sponsorship: the app is open source and getting around this check isn't hard, but we trust you'll buy us one anyway.",
+  "自定义插件需要「高级功能」（¥0.99 / 31 天）。悄悄说一句：这其实是赞助费，代码开源、拦不住你，但还是请我们喝杯奶茶吧。可以在「账号」页开通。": "Custom plugins need Pro (¥0.99 per 31 days). Between us: it's really a tip jar. The code is open source and can't stop you, but please buy us a bubble tea. You can subscribe on the Account page."
 }

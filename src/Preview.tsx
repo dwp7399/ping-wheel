@@ -2,8 +2,18 @@ import { useCallback, useMemo, useState } from "react";
 import Wheel, { WHEEL_SIZE, WheelSource } from "./Wheel";
 import { ICONS, MAX_ITEMS, WheelItem, selectionFor, suggestAngle } from "./types";
 
-const DEMO_LABELS = ["问号", "标记", "收藏", "对话", "左上", "右上", "右下", "左下", "翻译", "笔记", "终端", "代码"];
-const DEMO_ICONS = ["ask", "mark", "collect", "chat", "sparkle", "translate", "note", "camera", "terminal", "folder", "code", "link"] as const;
+const DEMO_LABELS = ["?", "标记", "收藏", "对话", "翻译", "打开", "插件", "笔记", "截图", "终端", "灵感", "代码"];
+const DEMO_ICONS = ["ask", "mark", "collect", "chat", "translate", "link", "code", "note", "camera", "terminal", "sparkle", "folder"] as const;
+
+const DEMO_ACTIONS: WheelItem["action"][] = [
+  { type: "ask", prompt: "", mode: "auto", custom: "" },
+  { type: "mark" },
+  { type: "collect" },
+  { type: "chat" },
+  { type: "ask", prompt: "", mode: "translate", custom: "" },
+  { type: "open", target: "" },
+  { type: "plugin", plugin: "demo", action: "a" },
+];
 
 /** 按「先四正、再四斜、再补空隙」的顺序生成 n 个演示项 */
 export function demoItems(n: number): WheelItem[] {
@@ -16,7 +26,7 @@ export function demoItems(n: number): WheelItem[] {
       angle,
       label: DEMO_LABELS[i],
       icon: DEMO_ICONS[i] ?? ICONS[i % ICONS.length],
-      action: i === 0 ? { type: "ask", prompt: "", mode: "auto", custom: "" } : { type: "chat" },
+      action: DEMO_ACTIONS[i] ?? { type: "chat" },
     });
   }
   return items;

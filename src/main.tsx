@@ -17,7 +17,7 @@ async function boot() {
       const { default: Toast } = await import("./Toast");
       document.documentElement.dataset.window = "toast";
       const samples = [
-        { icon: "ask", title: "问号", detail: "截图并让 AI 解释（功能开发中）", status: "pending" },
+        { icon: "mark", title: "标记", detail: "已标记：Rust 所有权与借用（可回到这个网页）", status: "done" },
         { icon: "link", title: "打开", detail: "已打开 https://github.com", status: "done" },
         { icon: "link", title: "打开", detail: "还没有设置要打开的目标，请在菜单里填写", status: "failed" },
       ] as const;

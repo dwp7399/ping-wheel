@@ -102,6 +102,7 @@ const STATUS: Record<Collection["status"], string> = {
   classifying: t("归类中…"),
   done: "",
   failed: t("归类失败"),
+  local: t("登录后可自动归类"),
 };
 
 function sourceLabel(c: Collection) {
@@ -421,7 +422,7 @@ export function AccountPage() {
               {e.pro.active ? (
                 <div className="plan-status">{t("已解锁自定义插件，{date} 到期", { date: dateText(e.pro.ends_at) })}</div>
               ) : (
-                <div className="muted">{t("未订阅。解锁自定义插件（¥0.99，每 31 天）。")}</div>
+                <div className="muted">{t("未订阅。¥0.99 / 31 天解锁自定义插件。说白了这是一杯奶茶的赞助费：客户端开源，想绕过这道检查并不难，但我们相信你会选择请我们喝一杯。")}</div>
               )}
             </div>
           </div>
@@ -508,7 +509,7 @@ export function PluginsPage() {
           </button>
         </div>
       </div>
-      {pro === false && <p className="notice">{t("自定义插件需要订阅「高级功能」（¥0.99，每 31 天），请到「账号」页查看。")}</p>}
+      {pro === false && <p className="notice">{t("自定义插件需要「高级功能」（¥0.99 / 31 天）。悄悄说一句：这其实是赞助费，代码开源、拦不住你，但还是请我们喝杯奶茶吧。可以在「账号」页开通。")}</p>}
       {plugins.length === 0 && <p className="muted empty">{t("还没有安装插件。")}</p>}
       <div className="plugin-list">
         {plugins.map((p) => (

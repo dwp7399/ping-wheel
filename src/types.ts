@@ -70,6 +70,21 @@ export function newAction(type: ActionType): Action {
   return { type };
 }
 
+/**
+ * 各类动作的颜色（参考 Duolingo 设计系统：饱和色 + 深一档的 3D 底边 + 浅色光环）。
+ * fill 为按钮底色，lip 为底边，soft 为选中光环 / 扇区，ink 为图标颜色。
+ */
+export type Palette = { fill: string; lip: string; soft: string; ink: string };
+export const ACTION_COLORS: Record<ActionType, Palette> = {
+  ask: { fill: "#1cb0f6", lip: "#1899d6", soft: "#ddf4ff", ink: "#ffffff" },
+  mark: { fill: "#ff9600", lip: "#cc7a00", soft: "#ffefd6", ink: "#ffffff" },
+  collect: { fill: "#ffc800", lip: "#e0a800", soft: "#fff6cc", ink: "#5c4300" },
+  chat: { fill: "#58cc02", lip: "#58a700", soft: "#dbf8c5", ink: "#ffffff" },
+  open: { fill: "#ce82ff", lip: "#a568cc", soft: "#f4e6ff", ink: "#ffffff" },
+  plugin: { fill: "#ff4b4b", lip: "#cc3b3b", soft: "#ffe1e1", ink: "#ffffff" },
+};
+export const HUB_COLORS: Palette = { fill: "#ffffff", lip: "#e5e5e5", soft: "#f0f0f0", ink: "#777777" };
+
 /** 「?」的主要目的（附加提示词在后端，管理台可改） */
 export const ASK_MODES: { id: string; name: string }[] = [
   { id: "auto", name: t("自动判断") },

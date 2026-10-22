@@ -179,8 +179,8 @@
         <div>
           <h1>Ping Wheel</h1>
           <p class="lead">
-            按 <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>C</kbd> 在光标处唤出轮盘，指向一个方向、点一下就执行：
-            截图问 AI、标记当前场景、收藏内容、开新对话。方向和功能都可以自己配，最多 12 个。
+            按 <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>C</kbd> 在光标处唤出轮盘，指向一个方向、点一下就执行。
+            核心是「?」：把鼠标停在看不懂的地方，它会结合屏幕和上下文判断你想知道什么。方向、功能、插件都能自己配。
           </p>
           <div class="downloads" id="downloads">
             <a class="btn primary" id="primary" href="#">下载</a>
@@ -209,11 +209,16 @@
       </section>
 
       <section class="features">
-        <div class="feature"><b>问号</b><p>截取当前屏幕，让 AI 解释你看到的内容，并弹出对话框继续追问。</p></div>
-        <div class="feature"><b>标记</b><p>记下当前的网页、文件或窗口，之后从菜单一键回到当时的场景。</p></div>
-        <div class="feature"><b>收藏</b><p>截图收藏，AI 自动归类；同一篇文章、同一个链接的内容放在一起。</p></div>
-        <div class="feature"><b>对话</b><p>随时开一个新对话，不用切换窗口。</p></div>
+        <div class="feature"><b>?</b><p>理解你标记的那一处：外语先翻译、单词带发音，还能选翻译、名词解释、报错排查等目的。</p></div>
+        <div class="feature"><b>标记</b><p>记下当前的网页、文件或窗口，之后一键回到当时的场景，应用没开也会自动打开。</p></div>
+        <div class="feature"><b>收藏</b><p>截图收藏，自动归类；同一篇文章、同一个链接的内容放在一起。</p></div>
+        <div class="feature"><b>插件</b><p>用 zip 安装自定义插件，挂到轮盘的任意方向上。支持 12 种语言。</p></div>
       </section>
+
+      <div class="note">
+        <b>开源与官方服务：</b>客户端开源，不登录也能用轮盘、标记、收藏和不调用模型的插件。「?」、对话、自动归类这些模型能力由官方服务提供，提示词和模型在服务端持续迭代。
+        自定义插件那一档 ¥0.99 其实就是一杯奶茶的赞助费——检查就在开源的客户端里，绕过并不难，但我们相信你会请我们喝一杯。
+      </div>
 
       <div class="note">
         <b>macOS 首次打开：</b>安装包暂未做苹果签名，系统可能提示「已损坏」或「无法验证开发者」。

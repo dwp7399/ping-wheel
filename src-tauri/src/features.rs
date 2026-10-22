@@ -178,6 +178,12 @@ pub fn collect(app: &AppHandle) -> Result<String, String> {
 
 async fn classify(app: AppHandle, id: i64, context: Option<serde_json::Value>) {
     let Ok(Some(row)) = store::get_collection(&app, id) else { return };
+    // 没登录：收藏照常保存，只是不自动归类（基础功能不依赖服务端）
+    if crate::settings::account(&app).token.is_empty() {
+        let _ = store::set_collection_status(&app, id, "local");
+        let _ = app.emit("collections:changed", id);
+        return;
+    }
     let _ = store::set_collection_status(&app, id, "classifying");
     let _ = app.emit("collections:changed", id);
 

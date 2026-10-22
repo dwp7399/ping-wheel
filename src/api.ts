@@ -29,7 +29,7 @@ export type Collection = {
   category: string;
   tags: string[];
   summary: string;
-  status: "pending" | "classifying" | "done" | "failed";
+  status: "pending" | "classifying" | "done" | "failed" | "local";
 };
 export type AccountView = { server_url: string; has_token: boolean; token_hint: string };
 export type LocaleView = { setting: string; effective: string; timezone: string; langs: [string, string][] };
