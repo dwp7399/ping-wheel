@@ -31,9 +31,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # 版本只认 package.json 的 packageManager。再写 version 时，pnpm/action-setup@v4 会直接失败。
       - uses: pnpm/action-setup@v4
-        with:
-          version: 11
 
       - uses: actions/setup-node@v4
         with:
